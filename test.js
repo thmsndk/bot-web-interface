@@ -4,7 +4,7 @@
  */
 const BotWebInterface = require("./main");
 
-let BWI = new BotWebInterface({ port: 2080 });
+let BWI = new BotWebInterface({ updateRate: 1000, port: 2080 });
 
 BWI.publisher.setDefaultStructure([
   { name: "botUIId", type: "text", label: "BotUI ID" },
@@ -108,7 +108,7 @@ setInterval(function () {
       ticks: setIntervalTicks,
       // notice that if you refresh (F5) the BWI, the name is no longer present, this data source has overidden the previous one
       health: [healthPercentage.toFixed(2), health.toFixed(2)],
-      xp: Math.random() * 100,
+      xp: (Math.random() * 100).toFixed(2),
     };
   });
 

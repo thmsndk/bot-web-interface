@@ -4,7 +4,9 @@
   "description": "A lightweight ui to display information from node js. Structure can be controlled with a simple js object.",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tailwindcss": "npx tailwindcss -i ./public/input.css -o ./public/output.css --watch"
+
   },
   "author": "Patric Wellershaus",
   "license": "ISC",
@@ -20,5 +22,8 @@
     "socket.io": "^4.7.2",
     "socket.io-client": "~4.7.2",
     "socket.io-msgpack-parser": "~3.0.2"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
   }
 }
