@@ -60,6 +60,8 @@ function create() {
 
   // TODO: how would we render a monster icon?
   // TODO: what about an item icon?
+  // TODO: show (de)buffs?
+  // TODO: gradient colored progressbar?
   let subBotUI1 = botUI.createSubBotUI(
     [
       { name: "foo", type: "text", label: "foo" },
@@ -107,7 +109,10 @@ setInterval(function () {
       botUIId: botUI.id,
       ticks: setIntervalTicks,
       // notice that if you refresh (F5) the BWI, the name is no longer present, this data source has overidden the previous one
-      health: [healthPercentage.toFixed(2), health.toFixed(2)],
+      health: [
+        healthPercentage.toFixed(2),
+        `${health.toFixed(2)} / ${maxHealth}`,
+      ],
       xp: (Math.random() * 100).toFixed(2),
     };
   });

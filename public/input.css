@@ -11,8 +11,11 @@ body{
     font-family: m5x7, Helvetica, Arial, sans-serif;
     font-size: 24px;
     line-height: 22px;
-    color: white;
+    /* color: white; */
 }  
+
+
+
   
 *{
     webkit-box-sizing: content-box;
@@ -22,12 +25,12 @@ body{
     webkit-box-sizing: border-box;
     box-sizing: border-box;
 }
-body{
+/* body{
     background-color: black;
-}
+} */
 
 .box {
-    background-color: black;
+    /* background-color: black; */
     border: 4px solid grey;
     margin: 8px;
     display: inline-block;

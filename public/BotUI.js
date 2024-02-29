@@ -30,6 +30,7 @@ BotUi.prototype.create = function () {
         if (!options)
           options = {
             value_foreground: "white",
+            // TODO: handle overriding styles in a better way so we can support dark/light mode
           };
         html += `<div class='${name} textDisplay boxRow'><div class='textDisplayLabel'>${label}: </div><div class='textDisplayValue' style='color: ${options.value_foreground}; float:right'></div></div>`;
         break;
@@ -59,6 +60,11 @@ BotUi.prototype.create = function () {
       case "graph":
         //TODO implement later
         break;
+      case "list":
+        // TODO: implement later, a list of columns and rows, to show loot/upgrades/deaths the last 12 hours for example
+        break;
+      // TODO: a left / middle / right text option
+      // could display name | status | level for example
       case "button":
         if (!options) {
           options = {
