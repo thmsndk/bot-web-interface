@@ -89,8 +89,31 @@ BotUi.prototype.create = function () {
       case "graph":
         //TODO implement later
         break;
-      case "list":
-        // TODO: implement later, a list of columns and rows, to show loot/upgrades/deaths the last 12 hours for example
+      case "table":
+        // TODO: render tables with column headers and rows
+        // TODO: captions? https://tailwindcss.com/docs/caption-side
+        const headers = this.structure[i].headers;
+        let headersHtml = "";
+        if (headers) {
+          // TODO: ability to define alignment on headers
+          // TODO: show date as X time ago with a tooltip of the date
+          headersHtml = `<thead>
+          <tr>
+            ${headers
+              .map(
+                (x) =>
+                  `<th class="border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">${x}</th>`
+              )
+              .join("")}
+          </tr>
+        </thead>`;
+        }
+
+        html += `<table class="${name} border-collapse table-auto w-full text-sm">
+        ${headersHtml}
+        <tbody>
+        </tbody>
+        </table>`;
         break;
       // TODO: a left / middle / right text option
       // could display name | status | level for example
@@ -112,7 +135,7 @@ BotUi.prototype.create = function () {
 
         const flexDirection =
           options.flexDirection == "column" ? "flex-col" : "flex-row";
-        html += `<div class='${name} ${flexDirection} rounded-lg my-3 bg-slate-800 shadow subBotUI'></div>`;
+        html += `<div class='${name} ${flexDirection} rounded-lg my-3 bg-slate-200 dark:bg-slate-800 shadow subBotUI'></div>`;
         break;
     }
   }
@@ -140,8 +163,11 @@ BotUi.prototype.render = function () {
     const name = this.structure[i].name;
     const type = this.structure[i].type;
     const value = this.data[name];
+
     if (value === undefined) continue;
+
     const row = this.element.getElementsByClassName(name)[0];
+
     switch (type) {
       case "text":
         row.getElementsByClassName("textDisplayValue")[0].innerHTML = value;
@@ -162,6 +188,22 @@ BotUi.prototype.render = function () {
         break;
       case "botUI":
         break;
+      case "table":
+        // const tbody =
+        const newTbody = document.createElement("tbody");
+        for (let index = 0; index < value.length; index++) {
+          const element = value[index];
+          const newRow = newTbody.insertRow(index);
+          newRow.innerHTML = element
+            .map(
+              (rowColumnValue) =>
+                `<td class="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">${rowColumnValue}</td>`
+            )
+            .join("");
+        }
+
+        row.replaceChild(newTbody, row.getElementsByTagName("tbody")[0]);
+        break;
     }
   }
 };
@@ -177,3 +219,21 @@ BotUi.prototype.updateProperty = function (name, value) {
   this.data[name] = value;
   this.render();
 };
+
+// https://stackoverflow.com/a/74456486
+function timeAgo(date) {
+  var seconds = Math.floor(
+    (new Date().getTime() - new Date(date).getTime()) / 1000
+  );
+  var interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes";
+  return Math.floor(seconds) + " seconds";
+}

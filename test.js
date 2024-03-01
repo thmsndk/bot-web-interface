@@ -3,6 +3,7 @@
  * modified by thmsn
  */
 const BotWebInterface = require("./main");
+const { name1, name2 } = require("./test-names");
 
 let BWI = new BotWebInterface({ updateRate: 500, port: 2080 });
 
@@ -103,7 +104,12 @@ function create() {
     [
       { name: "foo", type: "text", label: "foo sub4" },
       { name: "id", type: "text", label: "id" },
-      { name: "toggleActive", type: "button", label: "asd" },
+      {
+        name: "loot",
+        type: "table",
+        label: "Looted (12h)",
+        headers: ["When", "Item", "Quantity"],
+      }, // TODO: left label and right label?
     ],
     "bots2"
   );
@@ -115,6 +121,7 @@ for (let l = 0; l < 4; l++) {
   interfaces[l] = create();
 }
 
+const lootByCharacter = {};
 setInterval(function () {
   setIntervalTicks++;
   let [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4] = interfaces.shift();
@@ -166,12 +173,59 @@ setInterval(function () {
     };
   });
 
+  if (!lootByCharacter[subBotUI4.id]) {
+    lootByCharacter[subBotUI4.id] = [];
+  }
+
+  const loot = [new Date(), generateName(), Math.floor(Math.random() * 100)];
+  lootByCharacter[subBotUI4.id].splice(0, 0, loot);
+
   subBotUI4.setDataSource(function () {
     return {
       id: subBotUI4.id,
       foo: i++,
+      loot: lootByCharacter[subBotUI4.id].map((x) => [
+        timeAgo(x[0]),
+        x[1],
+        x[2],
+      ]),
     };
   });
 
   interfaces.push([botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4]);
 }, 1000);
+
+function capFirst(string) {
+  if (!string) return;
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function generateName() {
+  const name =
+    capFirst(name1[getRandomInt(0, name1.length + 1)]) +
+    " " +
+    capFirst(name2[getRandomInt(0, name2.length + 1)]);
+  return name;
+}
+
+// https://stackoverflow.com/a/74456486
+function timeAgo(date) {
+  var seconds = Math.floor(
+    (new Date().getTime() - new Date(date).getTime()) / 1000
+  );
+  var interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes";
+  return Math.floor(seconds) + " seconds";
+}
