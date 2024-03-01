@@ -19,11 +19,11 @@ BotUi.prototype.destroy = function () {
 BotUi.prototype.create = function () {
   var element = document.createElement("div");
   if (!this.parent) {
-    element.className = "flex flex-col mx-5 min-w-80";
+    element.className = "text-sm flex flex-col mx-5 min-w-80";
+  } else {
+    element.className = "text-sm ";
   }
-  // else {
-  //   element.className = "flex flex-col my-5";
-  // }
+
   var html = "";
   for (var i in this.structure) {
     var name = this.structure[i].name;
@@ -37,7 +37,9 @@ BotUi.prototype.create = function () {
             value_foreground: "white",
             // TODO: handle overriding styles in a better way so we can support dark/light mode
           };
-        html += `<div class='${name} my-1 p-1 flex flex-row justify-between textDisplay boxRow'>
+        const border = "border-b border-slate-100 dark:border-slate-700";
+        // const text = "text-slate-500 dark:text-slate-400"
+        html += `<div class='${name} ${border} p-4 pl-8 flex flex-row justify-between textDisplay boxRow'>
                   <div class='justify-self-start textDisplayLabel' >${label}: </div>
                   <div class='justify-self-end textDisplayValue' ></div>
                 </div>`;
@@ -60,6 +62,7 @@ BotUi.prototype.create = function () {
         // https://preline.co/docs/progress.html
 
         // TODO: the label can overflow when we use position absolute, how do we handle longer values?
+
         html += `<div class="${name} my-1 h-8 flex w-full h-4 bg-gray-200 overflow-hidden dark:bg-gray-700" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
                     <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-xs text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
                       options?.color ? `background-color:${options.color}` : ""
@@ -109,11 +112,15 @@ BotUi.prototype.create = function () {
         </thead>`;
         }
 
-        html += `<table class="${name} border-collapse table-auto w-full text-sm">
-        ${headersHtml}
-        <tbody>
-        </tbody>
-        </table>`;
+        // <div class="max-h-[50vh] overflow-y-auto overflow-x-hidden">
+        html += `
+          <table class="${name} border-collapse table-auto w-full text-sm">
+          ${headersHtml}
+          <tbody>
+          </tbody>
+          </table>
+        `;
+        // </div>
         break;
       // TODO: a left / middle / right text option
       // could display name | status | level for example
@@ -189,7 +196,6 @@ BotUi.prototype.render = function () {
       case "botUI":
         break;
       case "table":
-        // const tbody =
         const newTbody = document.createElement("tbody");
         for (let index = 0; index < value.length; index++) {
           const element = value[index];

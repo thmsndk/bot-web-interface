@@ -47,22 +47,11 @@ var subInterfaces = [];
  * @returns {BotUI}
  */
 function create() {
-  const myArray = [
-    "apple",
-    "banana",
-    "cherry",
-    "date",
-    "elderberry",
-    "fig",
-    "grape",
-  ];
-  const randomElement = myArray[Math.floor(Math.random() * myArray.length)];
-
   const botUI = BWI.publisher.createInterface();
   botUI.setDataSource(function () {
     return {
       botUIId: botUI.id,
-      name: randomElement,
+      name: generateName(),
       ticks: setIntervalTicks,
     };
   });
@@ -143,7 +132,7 @@ setInterval(function () {
     return {
       botUIId: botUI.id,
       ticks: setIntervalTicks,
-      // notice that if you refresh (F5) the BWI, the name is no longer present, this data source has overidden the previous one
+      name: botUI.cache.name,
       health: [
         healthPercentage.toFixed(2),
         `${health.toFixed(2)} / ${maxHealth}`,
@@ -177,8 +166,10 @@ setInterval(function () {
     lootByCharacter[subBotUI4.id] = [];
   }
 
-  const loot = [new Date(), generateName(), Math.floor(Math.random() * 100)];
-  lootByCharacter[subBotUI4.id].splice(0, 0, loot);
+  if (Math.random() < 0.2) {
+    const loot = [new Date(), generateName(), Math.floor(Math.random() * 100)];
+    lootByCharacter[subBotUI4.id].splice(0, 0, loot);
+  }
 
   subBotUI4.setDataSource(function () {
     return {
