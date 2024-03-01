@@ -38,47 +38,48 @@ BotUi.prototype.create = function () {
             // TODO: handle overriding styles in a better way so we can support dark/light mode
           };
         const border = "border-b border-slate-100 dark:border-slate-700";
-        // const text = "text-slate-500 dark:text-slate-400"
+
         html += `<div class='${name} ${border} p-4 pl-8 flex flex-row justify-between textDisplay boxRow'>
                   <div class='justify-self-start textDisplayLabel' >${label}: </div>
                   <div class='justify-self-end textDisplayValue' ></div>
                 </div>`;
         break;
       case "progressBar":
-        html += `<div class="${name} my-1 h-8 flex w-full h-4 bg-gray-200 overflow-hidden dark:bg-gray-700" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
-                    <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-xs text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
+        {
+          const background = "bg-slate-200 dark:bg-slate-800";
+          const text = "text-slate-700 dark:text-slate-200";
+          html += `<div class="${name} my-1 h-8 flex w-full h-4 ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                    <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
                       options?.color ? `background-color:${options.color}` : ""
                     }"></div>
                     <div class="absolute p-1 value">0%</div>
                   </div>`;
+        }
         break;
       case "labelProgressBar":
-        if (!options)
-          options = {
-            // color: "green",
-            // TODO: what about light/dark mode?
-          };
-        // TODO: perhaps more options for different progress bar, rounded, not rounded?
-        // https://preline.co/docs/progress.html
+        {
+          if (!options)
+            options = {
+              // color: "green",
+              // TODO: what about light/dark mode?
+            };
+          // TODO: perhaps more options for different progress bar, rounded, not rounded?
+          // https://preline.co/docs/progress.html
 
-        // TODO: the label can overflow when we use position absolute, how do we handle longer values?
-
-        html += `<div class="${name} my-1 h-8 flex w-full h-4 bg-gray-200 overflow-hidden dark:bg-gray-700" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
-                    <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-xs text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
+          // TODO: the label can overflow when we use position absolute, how do we handle longer values?
+          const background = "bg-slate-200 dark:bg-slate-800";
+          const text = "text-slate-700 dark:text-slate-200";
+          html += `<div class="${name} my-1 h-8 flex w-full h-4 ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                    <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
                       options?.color ? `background-color:${options.color}` : ""
                     }"></div>
                     <div class="absolute p-1 flex flex-row justify-between">
-                      <div class="justify-self-start">${label}</div>
+                      <div class="justify-self-start">${label}&nbsp;</div>
                       <div class="justify-self-end value">0%</div>
                     </div>
                   </div>`;
-        // TODO: text left side, percent right side
-        // html += `<div class='${name} progressBarDisplay boxRow'>
-        //            <div class='border'>
-        //             <div class='bar' style='background-color: ${options.color}'></div>
-        //             <div class='barLabel'>${label}: <div class='value'>0%</div></div>
-        //            </div>
-        //         </div>`;
+          // TODO: text left side, percent right side
+        }
         break;
       case "image":
         if (!options) {
