@@ -31,30 +31,30 @@ body{
 
 .box {
     /* background-color: black; */
-    border: 4px solid grey;
-    margin: 8px;
-    display: inline-block;
+    /* border: 4px solid grey; */
+    /* margin: 8px; */
+    /* display: inline-block; */
 }
 
 .boxRow{
-    margin:5px;
+    /* margin:5px; */
 }
 
 .textDisplay{
-    border-bottom: 1px dashed #666;
+    /* border-bottom: 1px dashed #666; */
 }
 .textDisplay:last-child{
-    border-bottom: 0;
+    /* border-bottom: 0; */
 }
 .textDisplayLabel{
-    display:inline;
+    /* display:inline; */
 }
 .textDisplayValue{
-    display:inline;
+    /* display:inline; */
 }
 .border{
-    height: 25px;
-    border: 4px solid grey;
+    /* height: 25px; */
+    /* border: 4px solid grey; */
 }
 .bar{
     height: 100%;
