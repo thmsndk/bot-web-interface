@@ -166,7 +166,7 @@ setInterval(function () {
     lootByCharacter[subBotUI4.id] = [];
   }
 
-  if (Math.random() < 0.2) {
+  if (Math.random() < 0.1) {
     const loot = [new Date(), generateName(), Math.floor(Math.random() * 100)];
     lootByCharacter[subBotUI4.id].splice(0, 0, loot);
   }
