@@ -28,6 +28,17 @@ BWI.publisher.setDefaultStructure([
     name: "chart",
     type: "chart", // this renders the value and sets the with of the bar to the value
     label: "Chart",
+    options: {
+      type: "bar",
+    },
+  },
+  {
+    name: "chart2",
+    type: "chart", // this renders the value and sets the with of the bar to the value
+    label: "Chart",
+    options: {
+      type: "line",
+    },
   },
 
   // botUI is a container used for "widgets" inside the "main" container
@@ -170,6 +181,17 @@ setInterval(function () {
       ],
       xp: (Math.random() * 100).toFixed(2),
       chart: {
+        data: [
+          { year: 2010, count: Math.random() * 10 },
+          { year: 2011, count: Math.random() * 20 },
+          { year: 2012, count: Math.random() * 15 },
+          { year: 2013, count: Math.random() * 25 },
+          { year: 2014, count: Math.random() * 22 },
+          { year: 2015, count: Math.random() * 30 },
+          { year: 2016, count: Math.random() * 28 },
+        ],
+      },
+      chart2: {
         data: [
           { year: 2010, count: Math.random() * 10 },
           { year: 2011, count: Math.random() * 20 },

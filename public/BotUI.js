@@ -180,6 +180,7 @@ BotUi.prototype.render = function () {
     const name = this.structure[i].name;
     const type = this.structure[i].type;
     const value = this.data[name];
+    let options = this.structure[i].options;
 
     if (value === undefined) continue;
 
@@ -221,6 +222,13 @@ BotUi.prototype.render = function () {
         row.replaceChild(newTbody, row.getElementsByTagName("tbody")[0]);
         break;
       case "chart":
+        if (!options) {
+          options = {
+            type: "line",
+          };
+          // TODO: could store options as attribute on element
+        }
+        // TODO: handle pie charts https://www.chartjs.org/docs/latest/charts/doughnut.html
         const data = value.data;
 
         const canvas = document.getElementById(`${this.id}-${name}-chart`);
@@ -228,8 +236,9 @@ BotUi.prototype.render = function () {
           console.log(`initializing chart! ${this.id}-${name}-chart`);
           canvas.dataset.chartInitialized = true;
 
-          const barChart = new Chart(canvas, {
-            type: "bar",
+          // const barChart =
+          new Chart(canvas, {
+            type: options.type,
             options: {
               responsive: true,
               maintainAspectRatio: false,
