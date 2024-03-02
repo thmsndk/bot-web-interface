@@ -222,13 +222,21 @@ BotUi.prototype.render = function () {
         row.replaceChild(newTbody, row.getElementsByTagName("tbody")[0]);
         break;
       case "chart":
-        if (!options) {
-          options = {
-            type: "line",
-          };
-          // TODO: could store options as attribute on element
-        }
+        const defaults = {
+          type: "line",
+          scales: {
+            x: {
+              display: false,
+            },
+            y: {
+              display: false,
+            },
+          },
+        };
+
+        options = { ...defaults, ...options };
         // TODO: handle pie charts https://www.chartjs.org/docs/latest/charts/doughnut.html
+
         const data = value.data;
 
         const canvas = document.getElementById(`${this.id}-${name}-chart`);
@@ -243,14 +251,7 @@ BotUi.prototype.render = function () {
               responsive: true,
               maintainAspectRatio: false,
               animation: false,
-              scales: {
-                x: {
-                  display: false,
-                },
-                y: {
-                  display: false,
-                },
-              },
+              scales: options.scales,
               plugins: {
                 legend: {
                   display: false,
@@ -275,9 +276,9 @@ BotUi.prototype.render = function () {
           });
         } else {
           const chart = Chart.getChart(canvas);
-          chart.data.labels = data.map((row) => row.year);
+          chart.data.labels = data.map((row) => row.label);
           chart.data.datasets = [
-            { data: data.map((row) => Math.floor(row.count)) },
+            { data: data.map((row) => Math.floor(row.value)) },
           ];
 
           chart.update();
