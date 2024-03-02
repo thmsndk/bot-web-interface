@@ -1,6 +1,7 @@
 /**
  * Created by Nexus on 30.07.2017.
  */
+console.log();
 
 var BotUi = function (id, structure, parent, attachTarget) {
   this.id = id;
@@ -90,9 +91,6 @@ BotUi.prototype.create = function () {
         }
         html += `<div class='${name} imageDisplay boxRow'> <img src='' style='width:${options.width}px;height:${options.height}px;'/> </div>`;
         break;
-      case "graph":
-        //TODO implement later
-        break;
       case "table":
         // TODO: render tables with column headers and rows
         // TODO: captions? https://tailwindcss.com/docs/caption-side
@@ -144,6 +142,17 @@ BotUi.prototype.create = function () {
         const flexDirection =
           options.flexDirection == "column" ? "flex-col" : "flex-row";
         html += `<div class='${name} ${flexDirection} rounded-lg my-3 bg-slate-200 dark:bg-slate-800 shadow subBotUI'></div>`;
+        break;
+      case "chart":
+        // html += `<div class='${name}'> <canvas id="${this.id}-${name}-chart"></canvas> </div>`;
+        const background = "bg-slate-200 dark:bg-slate-800";
+        const text = "text-slate-700 dark:text-slate-200";
+        html += `<div class="${name} my-1 h-8 flex w-full h-4 ${background} ${text}">
+                  <canvas w-full id="${this.id}-${name}-chart"></canvas> 
+                </div>`;
+        // TODO: How do we initialize the chart ? e.g. new Chart when it's not part of the dom yet?
+        // Chart is initialized in render, as we can't use javascript to acquire the canvas element here.
+
         break;
     }
   }
@@ -210,6 +219,60 @@ BotUi.prototype.render = function () {
         }
 
         row.replaceChild(newTbody, row.getElementsByTagName("tbody")[0]);
+        break;
+      case "chart":
+        const data = value.data;
+
+        const canvas = document.getElementById(`${this.id}-${name}-chart`);
+        if (!canvas.dataset.chartInitialized) {
+          console.log(`initializing chart! ${this.id}-${name}-chart`);
+          canvas.dataset.chartInitialized = true;
+
+          const barChart = new Chart(canvas, {
+            type: "bar",
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              scales: {
+                x: {
+                  display: false,
+                },
+                y: {
+                  display: false,
+                },
+              },
+              plugins: {
+                legend: {
+                  display: false,
+                },
+                tooltip: {
+                  enabled: false,
+                },
+                labels: {
+                  enabled: false,
+                },
+              },
+            },
+            data: {
+              labels: data.map((row) => row.year), // not showing x-axis labels
+              datasets: [
+                {
+                  // label: "Acquisitions by year",
+                  data: data.map((row) => row.count),
+                },
+              ],
+            },
+          });
+        } else {
+          const chart = Chart.getChart(canvas);
+          chart.data.labels = data.map((row) => row.year);
+          chart.data.datasets = [
+            { data: data.map((row) => Math.floor(row.count)) },
+          ];
+
+          chart.update();
+        }
         break;
     }
   }

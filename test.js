@@ -23,6 +23,13 @@ BWI.publisher.setDefaultStructure([
     label: "XP",
     options: { color: "green" },
   },
+
+  {
+    name: "chart",
+    type: "chart", // this renders the value and sets the with of the bar to the value
+    label: "Chart",
+  },
+
   // botUI is a container used for "widgets" inside the "main" container
   // TODO: define columns mode or rows mode where each subwidget is ordered depending on this
   { name: "bots", type: "botUI", label: "Status" },
@@ -56,7 +63,31 @@ function create() {
     };
   });
 
-  // TODO: how would we render a monster icon?
+  // TODO: A Character box
+  // character name top left
+  // status in the middle
+  // level on the right side
+  // Death Inidicator, next to charactername? 🪦 😵 💀 ☠️
+  // progressbar for health, should be a little higher
+  // progressbar for manae, should be a little smaller than health
+  // Inventory X / Y with a chart below it with the last N inventory changes (would be cool if the chart was inside the progressbar)
+  // Gold perhaps also with a chart? Also show XP/h
+  // Time To Level UP progressbar with changes overtime?
+  // debuff progressbar with time left (specifically for monster hunts)
+
+  // progressbar wtih XP also show XP/h
+
+  // TODO: DPS/ HPS?
+
+  // TODO: A Target box
+  // Name left level right
+  // Health progressbar
+  // Mana progressbar
+  // debuff progressbar
+
+  // TODO: A Loot box
+
+  // TODO: how would we render a monster icon? add sprite/spritesheet support where we give it a url and some data for rendering the sprite?
   // TODO: what about an item icon?
   // TODO: show (de)buffs? monsterhunt
   // TODO: gradient colored progressbar?
@@ -138,6 +169,17 @@ setInterval(function () {
         `${health.toFixed(2)} / ${maxHealth}`,
       ],
       xp: (Math.random() * 100).toFixed(2),
+      chart: {
+        data: [
+          { year: 2010, count: Math.random() * 10 },
+          { year: 2011, count: Math.random() * 20 },
+          { year: 2012, count: Math.random() * 15 },
+          { year: 2013, count: Math.random() * 25 },
+          { year: 2014, count: Math.random() * 22 },
+          { year: 2015, count: Math.random() * 30 },
+          { year: 2016, count: Math.random() * 28 },
+        ],
+      },
     };
   });
 
