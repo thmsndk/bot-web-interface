@@ -111,6 +111,20 @@ function create() {
       { name: "id", type: "text", label: "id" },
       { name: "namse", type: "text", label: "namse" },
       { name: "nsame", type: "text", label: "nsame" },
+      {
+        name: "inventory",
+        type: "progressBar", // this renders the value and sets the with of the bar to the value
+        // label: "Gold",
+        options: { color: "brown" },
+      },
+      {
+        name: "inventoryChart",
+        type: "chart", // this renders the value and sets the with of the bar to the value
+        label: "Chart",
+        options: {
+          type: "line",
+        },
+      },
     ],
     "bots"
   );
@@ -211,6 +225,18 @@ setInterval(function () {
       header: { left: "Left", middle: "middle", right: "right" },
       id: subBotUI1.id,
       foo: i++,
+      inventory: (Math.random() * 100).toFixed(2),
+      inventoryChart: {
+        data: [
+          { label: 2010, value: Math.random() * 10 },
+          { label: 2011, value: Math.random() * 20 },
+          { label: 2012, value: Math.random() * 15 },
+          { label: 2013, value: Math.random() * 25 },
+          { label: 2014, value: Math.random() * 22 },
+          { label: 2015, value: Math.random() * 30 },
+          { label: 2016, value: Math.random() * 28 },
+        ],
+      },
     };
   });
 
