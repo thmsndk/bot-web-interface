@@ -66,7 +66,7 @@ BotUi.prototype.create = function () {
         {
           const background = "bg-slate-200 dark:bg-slate-800";
           const text = "text-slate-700 dark:text-slate-200";
-          html += `<div class="${name} my-1 h-8 flex w-full h-4 ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+          html += `<div class="${name} my-1 h-8 flex w-full h-4${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
                     <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
                       options?.color ? `background-color:${options.color}` : ""
                     }"></div>
@@ -130,6 +130,7 @@ BotUi.prototype.create = function () {
 
         // <div class="max-h-[50vh] overflow-y-auto overflow-x-hidden">
         html += `
+          <div class='${padding} text-center'>${label}</div>
           <table class="${name} border-collapse table-auto w-full text-sm">
           ${headersHtml}
           <tbody>

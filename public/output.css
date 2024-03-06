@@ -918,6 +918,11 @@ body {
   background-color: rgb(100 116 139 / var(--tw-bg-opacity));
 }
 
+.dark\:bg-slate-950:where(.dark, .dark *) {
+  --tw-bg-opacity: 1;
+  background-color: rgb(2 6 23 / var(--tw-bg-opacity));
+}
+
 .dark\:text-slate-200:where(.dark, .dark *) {
   --tw-text-opacity: 1;
   color: rgb(226 232 240 / var(--tw-text-opacity));

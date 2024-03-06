@@ -154,7 +154,7 @@ function create() {
         name: "loot",
         type: "table",
         label: "Looted (12h)",
-        headers: ["When", "Item", "Quantity"],
+        headers: ["When", "Item", "#"],
       }, // TODO: left label and right label?
     ],
     "bots2"
