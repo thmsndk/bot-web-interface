@@ -1,8 +1,7 @@
 /**
  * Created by Nexus on 30.07.2017.
  */
-console.log();
-
+const padding = "p-4";
 var BotUi = function (id, structure, parent, attachTarget) {
   this.id = id;
   this.structure = structure;
@@ -33,17 +32,35 @@ BotUi.prototype.create = function () {
     var options = this.structure[i].options;
     switch (type) {
       case "text":
-        if (!options)
-          options = {
-            value_foreground: "white",
-            // TODO: handle overriding styles in a better way so we can support dark/light mode
-          };
-        const border = "border-b border-slate-100 dark:border-slate-700";
+        {
+          if (!options)
+            options = {
+              value_foreground: "white",
+              // TODO: handle overriding styles in a better way so we can support dark/light mode
+            };
+          const border = "border-b border-slate-100 dark:border-slate-700";
 
-        html += `<div class='${name} ${border} p-4 pl-8 flex flex-row justify-between textDisplay boxRow'>
+          html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
                   <div class='justify-self-start textDisplayLabel' >${label}: </div>
                   <div class='justify-self-end textDisplayValue' ></div>
                 </div>`;
+        }
+        break;
+      case "leftMiddleRightText":
+        {
+          if (!options)
+            options = {
+              value_foreground: "white",
+              // TODO: handle overriding styles in a better way so we can support dark/light mode
+            };
+          const border = "border-b border-slate-100 dark:border-slate-700";
+
+          html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
+                    <div class='justify-self-start textValueLeft' ></div>
+                    <div class='justify-self-end textValueMiddle' ></div>
+                    <div class='justify-self-end textValueRight' ></div>
+                  </div>`;
+        }
         break;
       case "progressBar":
         {
@@ -104,7 +121,7 @@ BotUi.prototype.create = function () {
             ${headers
               .map(
                 (x) =>
-                  `<th class="border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">${x}</th>`
+                  `<th class="border-b dark:border-slate-600 font-medium ${padding} pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">${x}</th>`
               )
               .join("")}
           </tr>
@@ -190,6 +207,13 @@ BotUi.prototype.render = function () {
       case "text":
         row.getElementsByClassName("textDisplayValue")[0].innerHTML = value;
         break;
+      case "leftMiddleRightText":
+        const { left, middle, right } = value;
+        row.getElementsByClassName("textValueLeft")[0].innerHTML = left;
+        row.getElementsByClassName("textValueMiddle")[0].innerHTML = middle;
+        row.getElementsByClassName("textValueRight")[0].innerHTML = right;
+        break;
+
       case "progressBar":
         row.getElementsByClassName("bar")[0].style.width = value + "%";
         row.getElementsByClassName("value")[0].innerHTML = value + "%";
@@ -214,7 +238,7 @@ BotUi.prototype.render = function () {
           newRow.innerHTML = element
             .map(
               (rowColumnValue) =>
-                `<td class="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">${rowColumnValue}</td>`
+                `<td class="border-b border-slate-100 dark:border-slate-700 ${padding} text-slate-500 dark:text-slate-400">${rowColumnValue}</td>`
             )
             .join("");
         }

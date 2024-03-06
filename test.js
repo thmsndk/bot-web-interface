@@ -106,6 +106,7 @@ function create() {
   // TODO: Show tracktrix? computer image?
   let subBotUI1 = botUI.createSubBotUI(
     [
+      { name: "header", type: "leftMiddleRightText" },
       { name: "foo", type: "text", label: "foo sub1" },
       { name: "id", type: "text", label: "id" },
       { name: "namse", type: "text", label: "namse" },
@@ -207,6 +208,7 @@ setInterval(function () {
 
   subBotUI1.setDataSource(function () {
     return {
+      header: { left: "Left", middle: "middle", right: "right" },
       id: subBotUI1.id,
       foo: i++,
     };
