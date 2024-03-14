@@ -43,6 +43,7 @@ BWI.publisher.setDefaultStructure([
 
   // botUI is a container used for "widgets" inside the "main" container
   // TODO: define columns mode or rows mode where each subwidget is ordered depending on this
+  { name: "compose", type: "botUI" },
   { name: "bots", type: "botUI", label: "Status" },
   {
     name: "bots2",
@@ -107,10 +108,6 @@ function create() {
   let subBotUI1 = botUI.createSubBotUI(
     [
       { name: "header", type: "leftMiddleRightText" },
-      { name: "foo", type: "text", label: "foo sub1" },
-      { name: "id", type: "text", label: "id" },
-      { name: "namse", type: "text", label: "namse" },
-      { name: "nsame", type: "text", label: "nsame" },
       {
         name: "inventory",
         type: "progressBar", // this renders the value and sets the with of the bar to the value
@@ -160,7 +157,31 @@ function create() {
     "bots2"
   );
 
-  return [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4];
+  let subBotUI5 = botUI.createSubBotUI(
+    [
+      // TODO: the purpose of this sub UI entry is to "group" or "compose" widgets of info based on multiple render types
+      /**
+       * A Target widget showing an image/sprite of the target, name, level, health, mana for example
+       * Here we are also nesting layers to mimmic the LeftMiddleRightText component with just the text component.
+       * --------------------------------------
+       * |         | [TEXT]    [TEXT]    [TEXT]|
+       * |         | [PROGRESS BAR     ] [TEXT]|
+       * |  IMAGE  | [PROGRESS BAR            ]|
+       * |  SPRITE | [PROGRESS BAR            ]|
+       * |         | [PROGRESS BAR            ]|
+       * --------------------------------------
+       */
+      { name: "foo", type: "text", label: "foo sub4" },
+      // TODO: Another thing one could do is layer the following components on top of each other
+      // [TEXT] [CHART] [PROGRESSBAR]
+      // This would render a progressbar at the lowest z-index, a chart "ontop" of it and the text for the progressbar above the chart
+      // this would allow you to make a healthbar with the current value as the progressbar, but an average health chart also r endered inside the progressbar
+      // alternatively this should just be a specific widget one can use
+    ],
+    "compose"
+  );
+
+  return [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4, subBotUI5];
 }
 
 for (let l = 0; l < 4; l++) {
@@ -170,7 +191,8 @@ for (let l = 0; l < 4; l++) {
 const lootByCharacter = {};
 setInterval(function () {
   setIntervalTicks++;
-  let [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4] = interfaces.shift();
+  let [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4, subBotUI5] =
+    interfaces.shift();
 
   // This destroy was probably for testing shutting down an interface and creating a new
   if (setIntervalTicks % 100 == 0) {
@@ -223,8 +245,6 @@ setInterval(function () {
   subBotUI1.setDataSource(function () {
     return {
       header: { left: "Left", middle: "middle", right: "right" },
-      id: subBotUI1.id,
-      foo: i++,
       inventory: (Math.random() * 100).toFixed(2),
       inventoryChart: {
         data: [
@@ -275,7 +295,14 @@ setInterval(function () {
     };
   });
 
-  interfaces.push([botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4]);
+  interfaces.push([
+    botUI,
+    subBotUI1,
+    subBotUI2,
+    subBotUI3,
+    subBotUI4,
+    subBotUI5,
+  ]);
 }, 1000);
 
 function capFirst(string) {
