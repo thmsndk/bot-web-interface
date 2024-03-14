@@ -122,6 +122,22 @@ function create() {
           type: "line",
         },
       },
+      {
+        name: "debuffs",
+        type: "timerList", // should be a list of "timers"
+        /**
+         * [x/y Irradiated Goo      Xm Ys        Hunt] with the time left as a progress bar out of total time
+         * [Cursed                  Xm Ys            ]
+         * [Burned                  Xm Ys        x???] could show intensity
+         *
+         * so the timer list needs to be able to supply
+         * left, middle,right text, as well a "progress" for the progressbar
+         */
+        // label: "Gold",
+        // options: { color: "brown" },
+      },
+      // TODO: Skills/Actions on cooldown?
+      // TODO: "Stacked" line chart https://www.chartjs.org/docs/latest/samples/bar/stacked.html
     ],
     "bots"
   );
@@ -138,8 +154,6 @@ function create() {
     [
       { name: "foo", type: "text", label: "foo sub3" },
       { name: "id", type: "text", label: "id" },
-      { name: "namse", type: "text", label: "namse" },
-      { name: "nsame", type: "text", label: "nsame" },
     ],
     "bots2"
   );
@@ -147,6 +161,7 @@ function create() {
     [
       { name: "foo", type: "text", label: "foo sub4" },
       { name: "id", type: "text", label: "id" },
+      // TODO: A Pie chart of loot types(tier?, type? wtype?) looted the last 12h
       {
         name: "loot",
         type: "table",
@@ -171,7 +186,7 @@ function create() {
        * |         | [PROGRESS BAR            ]|
        * --------------------------------------
        */
-      { name: "foo", type: "text", label: "foo sub4" },
+      // { name: "foo", type: "text", label: "foo sub4" },
       // TODO: Another thing one could do is layer the following components on top of each other
       // [TEXT] [CHART] [PROGRESSBAR]
       // This would render a progressbar at the lowest z-index, a chart "ontop" of it and the text for the progressbar above the chart
@@ -189,6 +204,7 @@ for (let l = 0; l < 4; l++) {
 }
 
 const lootByCharacter = {};
+const debuffsByCharacter = {};
 setInterval(function () {
   setIntervalTicks++;
   let [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4, subBotUI5] =
@@ -242,6 +258,55 @@ setInterval(function () {
     };
   });
 
+  if (!debuffsByCharacter[subBotUI1.id]) {
+    debuffsByCharacter[subBotUI1.id] = {};
+  }
+  const debuffs = debuffsByCharacter[subBotUI1.id];
+  if (Math.random() < 0.3 && Object.keys(debuffs).length < 5) {
+    if (!debuffs.hunt) {
+      debuffs.hunt = {
+        name: "Irradiated Goo",
+        initialTime: 30 * 60 * 1000, // 30m
+        ms: 30 * 60 * 1000, // 30m
+      };
+    } else if (!debuffs.burned) {
+      debuffs.burned = {
+        name: "Burned",
+        initialTime: 10000, // 10s
+        ms: 10000, // 10s
+      };
+    } else if (!debuffs.cursed) {
+      debuffs.burned = {
+        name: "Cursed",
+        initialTime: 5000, // 5s
+        ms: 5000, // 5s
+      };
+    } else if (!debuffs.stack) {
+      debuffs.burned = {
+        name: "Stack",
+        initialTime: 10000, // 10s
+        ms: 10000, // 10s
+      };
+    }
+  }
+
+  // simulate debuffs counting down, or hunt kill count going up
+  for (const debuffName in debuffs) {
+    const debuff = debuffs[debuffName];
+
+    debuff.ms -= 1000;
+
+    if (debuff.ms < 0) {
+      delete debuffs[debuffName];
+    }
+
+    // widget specific properties
+    debuff.leftText = `${debuff.name}`;
+    debuff.middleText = msToTime(debuff.ms);
+    // right text?
+    debuff.percentage = (Math.max(0, debuff.ms) / debuff.initialTime) * 100;
+  }
+
   subBotUI1.setDataSource(function () {
     return {
       header: { left: "Left", middle: "middle", right: "right" },
@@ -257,6 +322,7 @@ setInterval(function () {
           { label: 2016, value: Math.random() * 28 },
         ],
       },
+      debuffs: Object.values(debuffsByCharacter[subBotUI1.id]),
     };
   });
 
@@ -339,4 +405,27 @@ function timeAgo(date) {
   interval = seconds / 60;
   if (interval > 1) return Math.floor(interval) + " minutes";
   return Math.floor(seconds) + " seconds";
+}
+
+function msToTime(duration) {
+  const milliseconds = Math.floor((duration % 1000) / 100);
+  const seconds = Math.floor((duration / 1000) % 60);
+  const minutes = Math.floor((duration / (1000 * 60)) % 60);
+  const hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+
+  const hoursString = hours < 10 ? "0" + hours.toString() : hours.toString();
+  const minutesString =
+    minutes < 10 ? "0" + minutes.toString() : minutes.toString();
+  const secondsString =
+    seconds < 10 ? "0" + seconds.toString() : seconds.toString();
+
+  return (
+    hoursString +
+    ":" +
+    minutesString +
+    ":" +
+    secondsString +
+    "." +
+    milliseconds.toString()
+  );
 }

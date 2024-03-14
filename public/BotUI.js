@@ -31,63 +31,59 @@ BotUi.prototype.create = function () {
     var type = this.structure[i].type;
     var options = this.structure[i].options;
     switch (type) {
-      case "text":
-        {
-          if (!options)
-            options = {
-              value_foreground: "white",
-              // TODO: handle overriding styles in a better way so we can support dark/light mode
-            };
-          const border = "border-b border-slate-100 dark:border-slate-700";
+      case "text": {
+        if (!options)
+          options = {
+            value_foreground: "white",
+            // TODO: handle overriding styles in a better way so we can support dark/light mode
+          };
+        const border = "border-b border-slate-100 dark:border-slate-700";
 
-          html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
+        html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
                   <div class='justify-self-start textDisplayLabel' >${label}: </div>
                   <div class='justify-self-end textDisplayValue' ></div>
                 </div>`;
-        }
         break;
-      case "leftMiddleRightText":
-        {
-          if (!options)
-            options = {
-              value_foreground: "white",
-              // TODO: handle overriding styles in a better way so we can support dark/light mode
-            };
-          const border = "border-b border-slate-100 dark:border-slate-700";
+      }
+      case "leftMiddleRightText": {
+        if (!options)
+          options = {
+            value_foreground: "white",
+            // TODO: handle overriding styles in a better way so we can support dark/light mode
+          };
+        const border = "border-b border-slate-100 dark:border-slate-700";
 
-          html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
+        html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
                     <div class='justify-self-start textValueLeft' ></div>
                     <div class='justify-self-end textValueMiddle' ></div>
                     <div class='justify-self-end textValueRight' ></div>
                   </div>`;
-        }
         break;
-      case "progressBar":
-        {
-          const background = "bg-slate-200 dark:bg-slate-800";
-          const text = "text-slate-700 dark:text-slate-200";
-          html += `<div class="${name} my-1 h-8 flex w-full h-4${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+      }
+      case "progressBar": {
+        const background = "bg-slate-200 dark:bg-slate-800";
+        const text = "text-slate-700 dark:text-slate-200";
+        html += `<div class="${name} my-1 h-8 flex w-full h-4${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
                     <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
                       options?.color ? `background-color:${options.color}` : ""
                     }"></div>
                     <div class="absolute p-1 value">0%</div>
                   </div>`;
-        }
         break;
-      case "labelProgressBar":
-        {
-          if (!options)
-            options = {
-              // color: "green",
-              // TODO: what about light/dark mode?
-            };
-          // TODO: perhaps more options for different progress bar, rounded, not rounded?
-          // https://preline.co/docs/progress.html
+      }
+      case "labelProgressBar": {
+        if (!options)
+          options = {
+            // color: "green",
+            // TODO: what about light/dark mode?
+          };
+        // TODO: perhaps more options for different progress bar, rounded, not rounded?
+        // https://preline.co/docs/progress.html
 
-          // TODO: the label can overflow when we use position absolute, how do we handle longer values?
-          const background = "bg-slate-200 dark:bg-slate-800";
-          const text = "text-slate-700 dark:text-slate-200";
-          html += `<div class="${name} my-1 h-8 flex w-full h-4 ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+        // TODO: the label can overflow when we use position absolute, how do we handle longer values?
+        const background = "bg-slate-200 dark:bg-slate-800";
+        const text = "text-slate-700 dark:text-slate-200";
+        html += `<div class="${name} my-1 h-8 flex w-full h-4 ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
                     <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
                       options?.color ? `background-color:${options.color}` : ""
                     }"></div>
@@ -96,9 +92,17 @@ BotUi.prototype.create = function () {
                       <div class="justify-self-end value">0%</div>
                     </div>
                   </div>`;
-          // TODO: text left side, percent right side
-        }
+        // TODO: text left side, percent right side
         break;
+      }
+      case "timerList": {
+        // A container for timers, the render method is responsible for adding / removing timers
+        html += `
+          <div class="${name} flex flex-col">
+          </div>
+        `;
+        break;
+      }
       case "image":
         if (!options) {
           options = {
@@ -246,6 +250,34 @@ BotUi.prototype.render = function () {
 
         row.replaceChild(newTbody, row.getElementsByTagName("tbody")[0]);
         break;
+      case "timerList": {
+        for (let index = 0; index < value.length; index++) {
+          const { leftText, middleText, rightText, percentage } = value[index];
+
+          // Add timer to markup if we don't have one at the appropriate index
+          let timerElement = row.querySelector(`#${name}${index}`);
+          if (!timerElement) {
+            const options = {};
+            this.addTimerElement(row, name, options, index);
+            continue;
+          }
+
+          // Update values of timer
+          timerElement.getElementsByClassName("bar")[0].style.width =
+            percentage + "%";
+
+          timerElement.getElementsByClassName("textValueLeft")[0].innerHTML =
+            leftText ?? "";
+          timerElement.getElementsByClassName("textValueMiddle")[0].innerHTML =
+            middleText ?? "";
+          timerElement.getElementsByClassName("textValueRight")[0].innerHTML =
+            rightText ?? "";
+        }
+
+        // TODO: hide timers from markup if we have too many
+
+        break;
+      }
       case "chart":
         const defaults = {
           type: "line",
@@ -312,6 +344,34 @@ BotUi.prototype.render = function () {
     }
   }
 };
+
+BotUi.prototype.addTimerElement = function (row, name, options, index) {
+  if (!options) {
+    options = {};
+  }
+
+  const background = "bg-slate-200 dark:bg-slate-800";
+  const text = "text-slate-700 dark:text-slate-200";
+  html = `<div id="${name}${index}" class="${name} relative my-1 h-6 flex w-full ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
+                  options?.color ? `background-color:${options.color}` : ""
+                }"></div>
+                <div class="absolute w-full flex justify-items-stretch text-sm">
+                  <div class='w-full p-1 justify-self-start text-left textValueLeft' ></div>
+                </div>
+                <div class="absolute w-full flex justify-items-stretch text-sm">
+                  <div class='w-full p-1 justify-self-center text-center textValueMiddle' ></div>
+                </div>
+                <div class="absolute w-full flex justify-items-stretch text-sm">
+                  <div class='w-full p-1 justify-self-end text-right textValueRight' ></div>
+                </div>
+              </div>`;
+
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  row.appendChild(temp.firstChild);
+};
+
 /**
  * Updates bot data
  */
