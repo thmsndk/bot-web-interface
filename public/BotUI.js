@@ -262,6 +262,9 @@ BotUi.prototype.render = function () {
             continue;
           }
 
+          // Make timer visible
+          timerElement.style.display = "";
+
           // Update values of timer
           timerElement.getElementsByClassName("bar")[0].style.width =
             percentage + "%";
@@ -274,7 +277,12 @@ BotUi.prototype.render = function () {
             rightText ?? "";
         }
 
-        // TODO: hide timers from markup if we have too many
+        // Hide extra timers
+        const timersToHide = Array.from(row.children).slice(value.length - 1);
+        for (const timerElement of timersToHide) {
+          // Hide timer
+          timerElement.style.display = "none";
+        }
 
         break;
       }

@@ -262,30 +262,37 @@ setInterval(function () {
     debuffsByCharacter[subBotUI1.id] = {};
   }
   const debuffs = debuffsByCharacter[subBotUI1.id];
-  if (Math.random() < 0.3 && Object.keys(debuffs).length < 5) {
-    if (!debuffs.hunt) {
+  if (Object.keys(debuffs).length < 5) {
+    if (!debuffs.hunt && Math.random() < 0.3) {
       debuffs.hunt = {
         name: "Irradiated Goo",
         initialTime: 30 * 60 * 1000, // 30m
         ms: 30 * 60 * 1000, // 30m
       };
-    } else if (!debuffs.burned) {
+    }
+    if (!debuffs.burned && Math.random() < 0.3) {
       debuffs.burned = {
         name: "Burned",
         initialTime: 10000, // 10s
         ms: 10000, // 10s
+        // TODO: intensity?
       };
-    } else if (!debuffs.cursed) {
+    }
+
+    if (!debuffs.cursed && Math.random() < 0.3) {
       debuffs.burned = {
         name: "Cursed",
         initialTime: 5000, // 5s
         ms: 5000, // 5s
       };
-    } else if (!debuffs.stack) {
-      debuffs.burned = {
+    }
+
+    if (!debuffs.stack && Math.random() < 0.3) {
+      debuffs.stack = {
         name: "Stack",
         initialTime: 10000, // 10s
         ms: 10000, // 10s
+        // TODO: stack count?
       };
     }
   }
