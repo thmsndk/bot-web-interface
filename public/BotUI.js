@@ -286,6 +286,7 @@ BotUi.prototype.render = function () {
 
         break;
       }
+
       case "chart":
         const defaults = {
           type: "line",
