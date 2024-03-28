@@ -18,6 +18,12 @@ BWI.publisher.setDefaultStructure([
     options: { color: "red", size: "base" },
   },
   {
+    name: "mana",
+    type: "labelProgressBar", // this expects value to be a tuple the first value being the bar width and the second value being the text on the label
+    label: "Mana",
+    options: { color: "blue" },
+  },
+  {
     name: "xp",
     type: "progressBar", // this renders the value and sets the with of the bar to the value
     label: "XP",
@@ -224,6 +230,10 @@ setInterval(function () {
     const health = Math.random() * maxHealth;
     const healthPercentage = (100 * health) / maxHealth;
 
+    const maxMana = 3000;
+    const mana = Math.random() * maxMana;
+    const manaPercentage = (100 * mana) / maxMana;
+
     return {
       botUIId: botUI.id,
       ticks: setIntervalTicks,
@@ -232,6 +242,7 @@ setInterval(function () {
         healthPercentage.toFixed(2),
         `${health.toFixed(2)} / ${maxHealth}`,
       ],
+      mana: [manaPercentage.toFixed(2), `${mana.toFixed(2)} / ${maxMana}`],
       xp: (Math.random() * 100).toFixed(2),
       chart: {
         data: [

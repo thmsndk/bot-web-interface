@@ -1,7 +1,7 @@
 /**
  * Created by Nexus on 30.07.2017.
  */
-const padding = "p-4";
+const padding = "p-1";
 var BotUi = function (id, structure, parent, attachTarget) {
   this.id = id;
   this.structure = structure;
@@ -37,7 +37,8 @@ BotUi.prototype.create = function () {
             value_foreground: "white",
             // TODO: handle overriding styles in a better way so we can support dark/light mode
           };
-        const border = "border-b border-slate-100 dark:border-slate-700";
+        // const border = "border-b border-slate-100 dark:border-slate-700";
+        const border = ""; // no border,perhaps an option?
 
         html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
                   <div class='justify-self-start textDisplayLabel' >${label}: </div>
@@ -51,7 +52,8 @@ BotUi.prototype.create = function () {
             value_foreground: "white",
             // TODO: handle overriding styles in a better way so we can support dark/light mode
           };
-        const border = "border-b border-slate-100 dark:border-slate-700";
+        // const border = "border-b border-slate-100 dark:border-slate-700";
+        const border = ""; // no border,perhaps an option?
 
         html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
                     <div class='justify-self-start textValueLeft' ></div>
@@ -72,7 +74,7 @@ BotUi.prototype.create = function () {
         // https://preline.co/docs/progress.html
         let textSize = "";
         let height = "";
-        let barPadding = "";
+        let barPadding = "px-1";
         switch (options.size) {
           case "xs":
             textSize = "text-xs";
@@ -86,7 +88,7 @@ BotUi.prototype.create = function () {
           case "base":
             textSize = "text-sm";
             height = "h-8";
-            barPadding = "p-2";
+            barPadding = "px-1 py-2";
             break;
         }
         const background = "bg-slate-200 dark:bg-slate-950";
@@ -96,9 +98,7 @@ BotUi.prototype.create = function () {
           : "";
 
         html += `<div class="${name} my-1 flex w-full ${height} ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
-                    <div class="bar flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
-                      options?.color ? `background-color:${options.color}` : ""
-                    }"></div>
+                    <div class="bar flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${barBackgroundColor}"></div>
                     <div class="absolute ${barPadding} value">0%</div>
                   </div>`;
         break;
@@ -115,7 +115,7 @@ BotUi.prototype.create = function () {
         // https://preline.co/docs/progress.html
         let textSize = "";
         let height = "";
-        let barPadding = "";
+        let barPadding = "px-1";
         switch (options.size) {
           case "xs":
             textSize = "text-xs";
@@ -124,12 +124,12 @@ BotUi.prototype.create = function () {
           case "sm":
             textSize = "text-sm";
             height = "h-6";
-            barPadding = "p-1";
+            barPadding = "px-1 py-1";
             break;
           case "base":
             textSize = "text-sm";
             height = "h-8";
-            barPadding = "p-2";
+            barPadding = "px-1 py-2";
             break;
         }
 
