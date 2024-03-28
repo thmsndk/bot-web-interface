@@ -61,33 +61,89 @@ BotUi.prototype.create = function () {
         break;
       }
       case "progressBar": {
-        const background = "bg-slate-200 dark:bg-slate-800";
-        const text = "text-slate-700 dark:text-slate-200";
-        html += `<div class="${name} my-1 h-8 flex w-full h-4${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
-                    <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
+        options = {
+          ...{
+            size: "sm",
+          },
+          ...options,
+        };
+
+        // TODO: perhaps more options for different progress bar, rounded, not rounded?
+        // https://preline.co/docs/progress.html
+        let textSize = "";
+        let height = "";
+        let barPadding = "";
+        switch (options.size) {
+          case "xs":
+            textSize = "text-xs";
+            height = "h-4";
+            break;
+          case "sm":
+            textSize = "text-sm";
+            height = "h-6";
+            barPadding = "p-1";
+            break;
+          case "base":
+            textSize = "text-sm";
+            height = "h-8";
+            barPadding = "p-2";
+            break;
+        }
+        const background = "bg-slate-200 dark:bg-slate-950";
+        const text = `text-slate-700 dark:text-slate-200 ${textSize}`;
+        const barBackgroundColor = options?.color
+          ? `background-color:${options.color}`
+          : "";
+
+        html += `<div class="${name} my-1 flex w-full ${height} ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                    <div class="bar flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
                       options?.color ? `background-color:${options.color}` : ""
                     }"></div>
-                    <div class="absolute p-1 value">0%</div>
+                    <div class="absolute ${barPadding} value">0%</div>
                   </div>`;
         break;
       }
       case "labelProgressBar": {
-        if (!options)
-          options = {
-            // color: "green",
-            // TODO: what about light/dark mode?
-          };
+        options = {
+          ...{
+            size: "sm",
+          },
+          ...options,
+        };
+
         // TODO: perhaps more options for different progress bar, rounded, not rounded?
         // https://preline.co/docs/progress.html
+        let textSize = "";
+        let height = "";
+        let barPadding = "";
+        switch (options.size) {
+          case "xs":
+            textSize = "text-xs";
+            height = "h-4";
+            break;
+          case "sm":
+            textSize = "text-sm";
+            height = "h-6";
+            barPadding = "p-1";
+            break;
+          case "base":
+            textSize = "text-sm";
+            height = "h-8";
+            barPadding = "p-2";
+            break;
+        }
 
         // TODO: the label can overflow when we use position absolute, how do we handle longer values?
-        const background = "bg-slate-200 dark:bg-slate-800";
-        const text = "text-slate-700 dark:text-slate-200";
-        html += `<div class="${name} my-1 h-8 flex w-full h-4 ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
-                    <div class="bar p-1 flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${
-                      options?.color ? `background-color:${options.color}` : ""
-                    }"></div>
-                    <div class="absolute p-1 flex flex-row justify-between">
+        const background = "bg-slate-200 dark:bg-slate-950";
+        const text = `text-slate-700 dark:text-slate-200 ${textSize}`;
+        const barBackgroundColor = options?.color
+          ? `background-color:${options.color}`
+          : "";
+
+        // TODO: would like some margins on x axis
+        html += `<div class="${name} my-1 flex w-full ${height} ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                    <div class="bar flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${barBackgroundColor}"></div>
+                    <div class="absolute ${barPadding} flex flex-row justify-between">
                       <div class="justify-self-start">${label}&nbsp;</div>
                       <div class="justify-self-end value">0%</div>
                     </div>

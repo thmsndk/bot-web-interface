@@ -15,7 +15,7 @@ BWI.publisher.setDefaultStructure([
     name: "health",
     type: "labelProgressBar", // this expects value to be a tuple the first value being the bar width and the second value being the text on the label
     label: "Health",
-    options: { color: "red" },
+    options: { color: "red", size: "base" },
   },
   {
     name: "xp",
