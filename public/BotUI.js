@@ -404,8 +404,7 @@ BotUi.prototype.render = function () {
         }
 
         // Hide extra timers
-        const timersToHide =
-          value.length > 0 ? Array.from(row.children).slice(value.length) : [];
+        const timersToHide = Array.from(row.children).slice(value.length);
 
         for (const timerElement of timersToHide) {
           // Hide timer
