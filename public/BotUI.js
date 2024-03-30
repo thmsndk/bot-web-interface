@@ -338,8 +338,9 @@ BotUi.prototype.render = function () {
           ["textValueRight", right],
         ]) {
           const element = row.getElementsByClassName(className)[0];
-          if (element.innerHTML !== value) {
-            element.innerHTML = value;
+
+          if (element.innerHTML !== (value ?? "")) {
+            element.innerHTML = value ?? "";
           }
         }
         break;

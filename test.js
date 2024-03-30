@@ -337,7 +337,7 @@ setInterval(function () {
     return {
       header: {
         left: "Left",
-        middle: "middle",
+        // middle: "middle",
         right: "right",
       },
       inventory: (Math.random() * 100).toFixed(2),
