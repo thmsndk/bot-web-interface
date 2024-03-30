@@ -113,7 +113,15 @@ function create() {
   // TODO: Show tracktrix? computer image?
   let subBotUI1 = botUI.createSubBotUI(
     [
-      { name: "header", type: "leftMiddleRightText" },
+      {
+        name: "header",
+        type: "leftMiddleRightText",
+        options: {
+          bgColor: "grey",
+          leftColor: "pink",
+          rightColor: "purple",
+        },
+      },
       {
         name: "inventory",
         type: "progressBar", // this renders the value and sets the with of the bar to the value
@@ -327,7 +335,11 @@ setInterval(function () {
 
   subBotUI1.setDataSource(function () {
     return {
-      header: { left: "Left", middle: "middle", right: "right" },
+      header: {
+        left: "Left",
+        middle: "middle",
+        right: "right",
+      },
       inventory: (Math.random() * 100).toFixed(2),
       inventoryChart: {
         data: [

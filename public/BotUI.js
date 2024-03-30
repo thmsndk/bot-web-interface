@@ -40,26 +40,82 @@ BotUi.prototype.create = function () {
         // const border = "border-b border-slate-100 dark:border-slate-700";
         const border = ""; // no border,perhaps an option?
 
-        html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
+        html += `<div class='${name} ${border} ${padding} flex flex-row justify-between'>
                   <div class='justify-self-start textDisplayLabel' >${label}: </div>
                   <div class='justify-self-end textDisplayValue' ></div>
                 </div>`;
         break;
       }
+
       case "leftMiddleRightText": {
-        if (!options)
-          options = {
-            value_foreground: "white",
-            // TODO: handle overriding styles in a better way so we can support dark/light mode
-          };
+        options = {
+          ...{
+            size: "base",
+          },
+          ...options,
+        };
+
         // const border = "border-b border-slate-100 dark:border-slate-700";
         const border = ""; // no border,perhaps an option?
 
-        html += `<div class='${name} ${border} ${padding} flex flex-row justify-between textDisplay boxRow'>
-                    <div class='justify-self-start textValueLeft' ></div>
-                    <div class='justify-self-end textValueMiddle' ></div>
-                    <div class='justify-self-end textValueRight' ></div>
-                  </div>`;
+        let textSize = "";
+        let height = "";
+        switch (options.size) {
+          case "xs":
+            textSize = "text-xs";
+            height = "h-4";
+            break;
+          case "sm":
+            textSize = "text-sm";
+            height = "h-6";
+            break;
+          case "base":
+            textSize = "text-base";
+            height = "h-8";
+            break;
+          case "lg":
+            textSize = "text-lg";
+            height = "h-10";
+            break;
+          case "xl":
+            textSize = "text-xl";
+            height = "h-12";
+            break;
+        }
+
+        const leftColor = options?.leftColor
+          ? `color:${options.leftColor}`
+          : "";
+
+        const middleColor = options?.middleColor
+          ? `color:${options.middleColor}`
+          : "";
+
+        const rightColor = options?.rightColor
+          ? `color:${options.rightColor}`
+          : "";
+
+        const roundedBg = options?.bgColor
+          ? `first:rounded-t last:rounded-b`
+          : "";
+        const bgColor = options?.bgColor
+          ? `background-color:${options.bgColor}`
+          : "";
+
+        const text = `text-slate-700 dark:text-slate-200 ${textSize}`;
+
+        //class="${name} relative my-1 h-6 flex w-full ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+        html += `<div class='${name} relative ${height} flex justify-between w-full ${border} ${text} overflow-hidden ${roundedBg}' style="${bgColor}">
+                   <div class="absolute w-full flex justify-items-stretch">
+                     <div class='w-full p-1 justify-self-start text-left textValueLeft' style="${leftColor}" ></div>
+                   </div>
+                   <div class="absolute w-full flex justify-items-stretch">
+                     <div class='w-full p-1 justify-self-center text-center textValueMiddle' style="${middleColor}"></div>
+                   </div>
+                   <div class="absolute w-full flex justify-items-stretch">
+                     <div class='w-full p-1 justify-self-end text-right textValueRight' style="${rightColor}"></div>
+                   </div>
+                </div>`;
         break;
       }
       case "progressBar": {
@@ -272,9 +328,16 @@ BotUi.prototype.render = function () {
         break;
       case "leftMiddleRightText":
         const { left, middle, right } = value;
-        row.getElementsByClassName("textValueLeft")[0].innerHTML = left;
-        row.getElementsByClassName("textValueMiddle")[0].innerHTML = middle;
-        row.getElementsByClassName("textValueRight")[0].innerHTML = right;
+        for (const [className, value] of [
+          ["textValueLeft", left],
+          ["textValueMiddle", middle],
+          ["textValueRight", right],
+        ]) {
+          const element = row.getElementsByClassName(className)[0];
+          if (element.innerHTML !== value) {
+            element.innerHTML = value;
+          }
+        }
         break;
 
       case "progressBar":
@@ -341,7 +404,9 @@ BotUi.prototype.render = function () {
 
         for (const timerElement of timersToHide) {
           // Hide timer
-          timerElement.style.display = "none";
+          if (timerElement.style.display !== "none") {
+            timerElement.style.display = "none";
+          }
         }
 
         break;
