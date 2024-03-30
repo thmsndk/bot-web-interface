@@ -245,8 +245,12 @@ BotUi.prototype.create = function () {
         }
 
         // <div class="max-h-[50vh] overflow-y-auto overflow-x-hidden">
+        // TODO: hide label if there is none
+        const htmlLabel = label
+          ? `<div class='${padding} text-center'>${label}</div>`
+          : "";
         html += `
-          <div class='${padding} text-center'>${label}</div>
+          ${htmlLabel}
           <table class="${name} border-collapse table-auto w-full text-sm">
           ${headersHtml}
           <tbody>
