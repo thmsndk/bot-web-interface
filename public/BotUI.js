@@ -50,7 +50,7 @@ BotUi.prototype.create = function () {
       case "leftMiddleRightText": {
         options = {
           ...{
-            size: "base",
+            size: "sm",
           },
           ...options,
         };
