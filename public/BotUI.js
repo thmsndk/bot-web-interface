@@ -331,16 +331,46 @@ BotUi.prototype.render = function () {
         row.getElementsByClassName("textDisplayValue")[0].innerHTML = value;
         break;
       case "leftMiddleRightText":
-        const { left, middle, right } = value;
-        for (const [className, value] of [
-          ["textValueLeft", left],
-          ["textValueMiddle", middle],
-          ["textValueRight", right],
+        const { left, middle, right, options } = value;
+
+        // background
+        const bgClasses = ["first:rounded-t", "last:rounded-b"];
+        if (options?.bgColor) {
+          for (const roundedBg of bgClasses) {
+            if (!row.classList.contains(roundedBg)) {
+              row.classList.add(roundedBg);
+            }
+          }
+        } else {
+          for (const roundedBg of bgClasses) {
+            if (row.classList.contains(roundedBg)) {
+              row.classList.remove(roundedBg);
+            }
+          }
+        }
+
+        row.style.backgroundColor = options?.bgColor ? options.bgColor : "";
+
+        // font color
+        const leftColor = options?.leftColor ?? "";
+        const middleColor = options?.middleColor ?? "";
+        const rightColor = options?.rightColor ?? "";
+
+        for (const [className, value, color] of [
+          ["textValueLeft", left, leftColor],
+          ["textValueMiddle", middle, middleColor],
+          ["textValueRight", right, rightColor],
         ]) {
           const element = row.getElementsByClassName(className)[0];
 
           if (element.innerHTML !== (value ?? "")) {
             element.innerHTML = value ?? "";
+          }
+
+          if (color) {
+            element.style.color = color;
+          } else {
+            element.style.color = "";
           }
         }
         break;
