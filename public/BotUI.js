@@ -262,6 +262,8 @@ BotUi.prototype.render = function () {
 
     if (value === undefined) continue;
 
+    // TODO: is there an issue with the name? e.g. we have two "timers" and it's not properly found in the subUI?
+
     const row = this.element.getElementsByClassName(name)[0];
 
     switch (type) {
@@ -334,7 +336,7 @@ BotUi.prototype.render = function () {
         }
 
         // Hide extra timers
-        const timersToHide = Array.from(row.children).slice(value.length - 1);
+        const timersToHide = Array.from(row.children).slice(value.length);
         for (const timerElement of timersToHide) {
           // Hide timer
           timerElement.style.display = "none";
