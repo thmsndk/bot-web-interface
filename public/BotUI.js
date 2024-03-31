@@ -30,6 +30,7 @@ BotUi.prototype.create = function () {
     var label = this.structure[i].label;
     var type = this.structure[i].type;
     var options = this.structure[i].options;
+    // TODO: modal dialogs that can be opened on click?
     switch (type) {
       case "text": {
         if (!options)
@@ -317,7 +318,7 @@ BotUi.prototype.render = function () {
   for (let i in this.structure) {
     const name = this.structure[i].name;
     const type = this.structure[i].type;
-    const value = this.data[name];
+    const value = this.data[name]; // TODO: sharing of the same data source across components? so we don't send it excessively? modals, chars, e.g. pie chart over loot table
     let options = this.structure[i].options;
 
     if (value === undefined) continue;
@@ -331,7 +332,9 @@ BotUi.prototype.render = function () {
         row.getElementsByClassName("textDisplayValue")[0].innerHTML = value;
         break;
       case "leftMiddleRightText":
-        const { left, middle, right, options } = value;
+        const { left, middle, right } = value;
+        // override with update options
+        options = { ...options, ...value.options };
 
         // background
         const bgClasses = ["first:rounded-t", "last:rounded-b"];
