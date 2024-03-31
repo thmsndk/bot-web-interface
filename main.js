@@ -14,6 +14,7 @@ class BotWebInterface {
   constructor(config = {}) {
     this.port = config.port || 2080;
     this.updateRate = config.updateRate || 100;
+    this.title = config.title || "Bot Controller";
 
     if (config.password) {
       if (typeof config.password != "string")
@@ -34,7 +35,7 @@ class BotWebInterface {
       parser: customParser,
     });
 
-    this.publisher = new Publisher(this.updateRate);
+    this.publisher = new Publisher(this.updateRate, this.title);
 
     this.setRoutes();
     this.openSocket();

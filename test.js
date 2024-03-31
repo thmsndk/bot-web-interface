@@ -5,7 +5,11 @@
 const BotWebInterface = require("./main");
 const { name1, name2 } = require("./test-names");
 
-let BWI = new BotWebInterface({ updateRate: 500, port: 2080 });
+let BWI = new BotWebInterface({
+  title: "TEST: BWI",
+  updateRate: 500,
+  port: 2080,
+});
 
 BWI.publisher.setDefaultStructure([
   { name: "botUIId", type: "text", label: "BotUI ID" },
