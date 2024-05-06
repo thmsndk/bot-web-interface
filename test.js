@@ -50,6 +50,14 @@ BWI.publisher.setDefaultStructure([
       type: "line",
     },
   },
+  {
+    name: "chart3",
+    type: "chart", // this renders the value and sets the with of the bar to the value
+    label: "Chart",
+    options: {
+      type: "bar",
+    },
+  },
 
   // botUI is a container used for "widgets" inside the "main" container
   // TODO: define columns mode or rows mode where each subwidget is ordered depending on this
@@ -257,26 +265,76 @@ setInterval(function () {
       mana: [manaPercentage.toFixed(2), `${mana.toFixed(2)} / ${maxMana}`],
       xp: (Math.random() * 100).toFixed(2),
       chart: {
-        data: [
-          { label: 2010, value: Math.random() * 10 },
-          { label: 2011, value: Math.random() * 20 },
-          { label: 2012, value: Math.random() * 15 },
-          { label: 2013, value: Math.random() * 25 },
-          { label: 2014, value: Math.random() * 22 },
-          { label: 2015, value: Math.random() * 30 },
-          { label: 2016, value: Math.random() * 28 },
-        ],
+        // bar chart
+        data: {
+          labels: [0, 1, 2, 3, 4, 5, 6],
+          datasets: [
+            {
+              data: [
+                Math.random() * 10,
+                Math.random() * 20,
+                Math.random() * 15,
+                Math.random() * 25,
+                Math.random() * 22,
+                Math.random() * 30,
+                Math.random() * 28,
+              ],
+            },
+          ],
+        },
       },
+      // line chart
       chart2: {
-        data: [
-          { label: 2010, value: Math.random() * 10 },
-          { label: 2011, value: Math.random() * 20 },
-          { label: 2012, value: Math.random() * 15 },
-          { label: 2013, value: Math.random() * 25 },
-          { label: 2014, value: Math.random() * 22 },
-          { label: 2015, value: Math.random() * 30 },
-          { label: 2016, value: Math.random() * 28 },
-        ],
+        data: {
+          labels: [0, 1, 2, 3, 4, 5, 6],
+          datasets: [
+            {
+              data: [
+                Math.random() * 10,
+                Math.random() * 20,
+                Math.random() * 15,
+                Math.random() * 25,
+                Math.random() * 22,
+                Math.random() * 30,
+                Math.random() * 28,
+              ],
+            },
+          ],
+        },
+      },
+      // bar chart multiple datasets
+      chart3: {
+        data: {
+          labels: [0, 1, 2, 3, 4, 5, 6],
+          datasets: [
+            {
+              // borderColor: 'rgb(255, 99, 132)',
+              backgroundColor: "rgb(255, 99, 132)",
+              data: [
+                Math.random() * 10,
+                Math.random() * 20,
+                Math.random() * 15,
+                Math.random() * 25,
+                Math.random() * 22,
+                Math.random() * 30,
+                Math.random() * 28,
+              ],
+            },
+            {
+              // borderColor: 'rgb(54, 162, 235)',
+              backgroundColor: "rgb(54, 162, 235)",
+              data: [
+                Math.random() * 10,
+                Math.random() * 20,
+                Math.random() * 15,
+                Math.random() * 25,
+                Math.random() * 22,
+                Math.random() * 30,
+                Math.random() * 28,
+              ],
+            },
+          ],
+        },
       },
     };
   });
@@ -346,15 +404,22 @@ setInterval(function () {
       },
       inventory: (Math.random() * 100).toFixed(2),
       inventoryChart: {
-        data: [
-          { label: 2010, value: Math.random() * 10 },
-          { label: 2011, value: Math.random() * 20 },
-          { label: 2012, value: Math.random() * 15 },
-          { label: 2013, value: Math.random() * 25 },
-          { label: 2014, value: Math.random() * 22 },
-          { label: 2015, value: Math.random() * 30 },
-          { label: 2016, value: Math.random() * 28 },
-        ],
+        data: {
+          labels: [0, 1, 2, 3, 4, 5, 6],
+          datasets: [
+            {
+              data: [
+                Math.random() * 10,
+                Math.random() * 20,
+                Math.random() * 15,
+                Math.random() * 25,
+                Math.random() * 22,
+                Math.random() * 30,
+                Math.random() * 28,
+              ],
+            },
+          ],
+        },
       },
       debuffs: Object.values(debuffsByCharacter[subBotUI1.id]),
     };

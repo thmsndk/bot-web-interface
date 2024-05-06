@@ -492,22 +492,11 @@ BotUi.prototype.render = function () {
                 },
               },
             },
-            data: {
-              labels: data.map((row) => row.year), // not showing x-axis labels
-              datasets: [
-                {
-                  // label: "Acquisitions by year",
-                  data: data.map((row) => row.count),
-                },
-              ],
-            },
+            data: data,
           });
         } else {
           const chart = Chart.getChart(canvas);
-          chart.data.labels = data.map((row) => row.label);
-          chart.data.datasets = [
-            { data: data.map((row) => Math.floor(row.value)) },
-          ];
+          chart.data = data;
 
           chart.update();
         }
