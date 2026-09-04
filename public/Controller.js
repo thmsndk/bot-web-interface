@@ -120,6 +120,15 @@ Controller.prototype.start = function () {
     }
   });
 
+  /**
+   * Batched field patches: { [interfaceId]: { [fieldName]: value }, ... }
+   */
+  socket.on("updateProperties", function (deltas) {
+    for (var id in deltas) {
+      if (self.botUIs[id]) self.botUIs[id].updateProperties(deltas[id]);
+    }
+  });
+
   socket.on("updateProperty", function (data) {
     if (self.botUIs[data.id])
       self.botUIs[data.id].updateProperty(data.name, data.value);

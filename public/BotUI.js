@@ -225,6 +225,20 @@ BotUi.prototype.create = function () {
         }
         html += `<div class='${name} imageDisplay boxRow'> <img src='' style='width:${options.width}px;height:${options.height}px;'/> </div>`;
         break;
+      case "minimap": {
+        if (!options) {
+          options = {
+            width: 200,
+            height: 150,
+          };
+        }
+        const w = options.width || 200;
+        const h = options.height || 150;
+        html += `<div class='${name} minimapDisplay boxRow'>
+          <canvas width="${w}" height="${h}" style="width:${w}px;height:${h}px;background:transparent;"></canvas>
+        </div>`;
+        break;
+      }
       case "table":
         // TODO: render tables with column headers and rows
         // TODO: captions? https://tailwindcss.com/docs/caption-side
@@ -389,6 +403,9 @@ BotUi.prototype.render = function () {
       case "image":
         row.getElementsByTagName("img")[0].src = value;
         break;
+      case "minimap":
+        this.renderMinimap(row, value, options);
+        break;
       case "graph":
         //TODO implement later
         break;
@@ -533,6 +550,67 @@ BotUi.prototype.addTimerElement = function (row, name, options, index) {
 };
 
 /**
+ * Draw a generic minimap from pixel-space lines and markers.
+ * value: { lines?: [[x1,y1,x2,y2,style],...], markers?: [[x,y,style],...] }
+ * options.styles: { [styleKey]: { stroke?, fill?, lineWidth?, shape? } }
+ * shapes: cross | dot | ring
+ */
+BotUi.prototype.renderMinimap = function (row, value, options) {
+  const canvas = row.getElementsByTagName("canvas")[0];
+  if (!canvas) return;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, w, h);
+
+  if (!value) return;
+
+  const styles = (options && options.styles) || {};
+  const lines = value.lines || [];
+  const markers = value.markers || [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const styleKey = line[4];
+    const style = styles[styleKey] || {};
+    ctx.beginPath();
+    ctx.strokeStyle = style.stroke || "#c8c8c8";
+    ctx.lineWidth = style.lineWidth || 1;
+    ctx.moveTo(line[0], line[1]);
+    ctx.lineTo(line[2], line[3]);
+    ctx.stroke();
+  }
+
+  for (let i = 0; i < markers.length; i++) {
+    const marker = markers[i];
+    const x = marker[0];
+    const y = marker[1];
+    const styleKey = marker[2];
+    const style = styles[styleKey] || {};
+    const shape = style.shape || "cross";
+    const fill = style.fill || style.stroke || "#ffffff";
+    const stroke = style.stroke || fill;
+
+    if (shape === "dot") {
+      ctx.fillStyle = fill;
+      ctx.fillRect(x, y, 2, 2);
+    } else if (shape === "ring") {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = style.lineWidth || 1;
+      ctx.beginPath();
+      ctx.arc(x + 0.5, y + 0.5, 3.5, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      // cross (default)
+      ctx.fillStyle = fill;
+      ctx.fillRect(x - 1, y, 3, 1);
+      ctx.fillRect(x, y - 1, 1, 3);
+    }
+  }
+};
+
+/**
  * Updates bot data
  */
 BotUi.prototype.update = function (data) {
@@ -541,7 +619,29 @@ BotUi.prototype.update = function (data) {
 };
 
 BotUi.prototype.updateProperty = function (name, value) {
-  this.data[name] = value;
+  if (!this.data) this.data = {};
+  if (value === undefined) {
+    delete this.data[name];
+  } else {
+    this.data[name] = value;
+  }
+  this.render();
+};
+
+/**
+ * Apply multiple field patches and render once.
+ * @param {Object<string, *>} changes
+ */
+BotUi.prototype.updateProperties = function (changes) {
+  if (!this.data) this.data = {};
+  for (const name of Object.keys(changes)) {
+    const value = changes[name];
+    if (value === undefined) {
+      delete this.data[name];
+    } else {
+      this.data[name] = value;
+    }
+  }
   this.render();
 };
 

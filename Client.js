@@ -25,6 +25,15 @@ class Client {
     this.socket.emit("updateBotUI", dataList);
   }
 
+  /**
+   * Batched per-interface field patches.
+   * Shape: { [interfaceId]: { [fieldName]: value, ... }, ... }
+   */
+  sendDelta(deltas) {
+    if (!this.setupSend) return;
+    this.socket.emit("updateProperties", deltas);
+  }
+
   pushData(id, name, value) {
     if (!this.setupSend) return;
     var data = { id: id, name: name, value: value };
