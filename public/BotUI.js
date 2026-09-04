@@ -452,17 +452,30 @@ BotUi.prototype.create = function () {
           options.flexDirection == "column" ? "flex-col" : "flex-row";
         html += `<div class='${name} ${flexDirection} rounded-lg my-2 px-1.5 py-1 bg-slate-200 dark:bg-slate-800/90 shadow-sm ring-1 ring-slate-300/40 dark:ring-slate-700/60 subBotUI'></div>`;
         break;
-      case "chart":
+      case "chart": {
         // html += `<div class='${name}'> <canvas id="${this.id}-${name}-chart"></canvas> </div>`;
+        options = {
+          size: "sm",
+          type: "bar",
+          ...options,
+        };
+        // Pixel height: options.height, or size presets (xs/sm/base/lg).
+        // Default sm≈old h-8; lg matches the previous fixed h-24.
+        const chartHeightBySize = { xs: 24, sm: 32, base: 48, lg: 96 };
+        const chartPx =
+          typeof options.height === "number" && options.height > 0
+            ? options.height
+            : chartHeightBySize[options.size] || chartHeightBySize.sm;
         const background = "bg-slate-200 dark:bg-slate-800";
         const text = "text-slate-700 dark:text-slate-200";
-        html += `<div class="${name} my-1 flex h-24 w-full ${background} ${text}">
-                  <canvas class="w-full" id="${this.id}-${name}-chart"></canvas> 
+        html += `<div class="${name} my-1 flex w-full ${background} ${text}" style="height:${chartPx}px">
+                  <canvas class="h-full w-full" id="${this.id}-${name}-chart"></canvas> 
                 </div>`;
         // TODO: How do we initialize the chart ? e.g. new Chart when it's not part of the dom yet?
         // Chart is initialized in render, as we can't use javascript to acquire the canvas element here.
 
         break;
+      }
     }
   }
   element.innerHTML = html;
@@ -757,7 +770,22 @@ BotUi.prototype.render = function (onlyNames) {
           },
         };
 
-        options = { ...defaults, ...options };
+        options = {
+          ...defaults,
+          ...options,
+          scales: {
+            ...defaults.scales,
+            ...(options && options.scales),
+            x: {
+              ...defaults.scales.x,
+              ...(options && options.scales && options.scales.x),
+            },
+            y: {
+              ...defaults.scales.y,
+              ...(options && options.scales && options.scales.y),
+            },
+          },
+        };
         // TODO: handle pie charts https://www.chartjs.org/docs/latest/charts/doughnut.html
 
         const data = value.data;

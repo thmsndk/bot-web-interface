@@ -198,7 +198,7 @@ function create() {
         name: "pings",
         type: "chart",
         label: "Chart",
-        options: { type: "bar" },
+        options: { type: "bar", height: 32 },
       },
     ],
     "server"
@@ -211,7 +211,11 @@ function create() {
         name: "health_mana",
         type: "chart",
         label: "Chart",
-        options: { type: "bar" },
+        options: {
+          type: "bar",
+          height: 32,
+          scales: { y: { min: 0, max: 100 } },
+        },
       },
     ],
     "party"
@@ -379,13 +383,13 @@ function createShowcase() {
       name: "lineChart",
       type: "chart",
       label: "Line",
-      options: { type: "line" },
+      options: { type: "line", size: "sm" },
     },
     {
       name: "multiBar",
       type: "chart",
       label: "Multi bar",
-      options: { type: "bar" },
+      options: { type: "bar", height: 40 },
     },
     { name: "action", type: "button", label: "Ping action" },
     { name: "nested", type: "botUI", label: "Nested" },
