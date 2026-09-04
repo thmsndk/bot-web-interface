@@ -9,11 +9,58 @@ let botUICount = 0;
 function cloneValue(value) {
   if (value === undefined || value === null) return value;
   if (typeof value !== "object") return value;
+  // Minimap payloads are large (wall segments). Callers build a fresh object
+  // each beat and do not mutate after publish — keep by reference.
+  if (Array.isArray(value.lines) && Array.isArray(value.origin)) {
+    return value;
+  }
   try {
     return structuredClone(value);
   } catch (e) {
     return JSON.parse(JSON.stringify(value));
   }
+}
+
+/** Cheap equality for minimap-shaped objects (skip walking every wall). */
+function minimapEqual(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.scale !== b.scale || a.width !== b.width || a.height !== b.height) {
+    return false;
+  }
+  if (a.map !== b.map || a.title !== b.title) return false;
+  const ao = a.origin;
+  const bo = b.origin;
+  if (
+    !ao ||
+    !bo ||
+    ao[0] !== bo[0] ||
+    ao[1] !== bo[1]
+  ) {
+    return false;
+  }
+  if (a.lines !== b.lines) {
+    if (!a.lines || !b.lines || a.lines.length !== b.lines.length) return false;
+  }
+  if (!util.isDeepStrictEqual(a.markers, b.markers)) return false;
+  if (!util.isDeepStrictEqual(a.rings, b.rings)) return false;
+  if (!util.isDeepStrictEqual(a.trail, b.trail)) return false;
+  return true;
+}
+
+function valuesEqual(a, b) {
+  if (a === b) return true;
+  if (
+    a &&
+    b &&
+    typeof a === "object" &&
+    typeof b === "object" &&
+    Array.isArray(a.lines) &&
+    Array.isArray(a.origin)
+  ) {
+    return minimapEqual(a, b);
+  }
+  return util.isDeepStrictEqual(a, b);
 }
 
 class Publisher {
@@ -73,7 +120,7 @@ class Publisher {
       for (const name of keys) {
         const nextVal = data[name];
         const prevVal = prev[name];
-        if (!util.isDeepStrictEqual(nextVal, prevVal)) {
+        if (!valuesEqual(nextVal, prevVal)) {
           changes[name] = nextVal;
           interfaceChanged = true;
         }
@@ -162,7 +209,7 @@ class Publisher {
 
   pushData(id, name, value) {
     const prev = this.lastSent.get(id) || {};
-    if (util.isDeepStrictEqual(prev[name], value)) return;
+    if (valuesEqual(prev[name], value)) return;
     this.lastSent.set(id, { ...prev, [name]: cloneValue(value) });
     for (var i = 0; i < this.clients.length; i++) {
       if (this.clients[i]) {

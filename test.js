@@ -1,475 +1,767 @@
 /**
  * Created by Nexus on 15.08.2017.
  * modified by thmsn
+ *
+ * Demo = caracAL-shaped character columns + a separate showcase column for
+ * widgets/sizes that production panels don't exercise.
  */
 const BotWebInterface = require("./main");
 const { name1, name2 } = require("./test-names");
+const mainGeo = require("./fixtures/main-geo.json");
+const {
+  resolveMinimapView,
+  DEFAULT_VISION,
+  projectMinimapLines,
+  projectMinimapPoint,
+  createWallProjector,
+} = require("./minimapGeometry");
+const { timerPresentation } = require("./countdown");
+
+const DEMO_MMAP = resolveMinimapView(DEFAULT_VISION);
+const DEMO_BEAT_MS = 500; // match caracAL STAT_BEAT_INTERVAL
+const projectWallsCached = createWallProjector();
+const CLASS_COLOR = {
+  merchant: "#7f7f7f",
+  mage: "#3e6eed",
+  warrior: "#f07f2f",
+  priest: "#eb4d82",
+  ranger: "#8a512b",
+  paladin: "#a3b4b9",
+  rogue: "#44b75c",
+};
+const CLASS_NAMES = Object.keys(CLASS_COLOR);
+
+const MINIMAP_STYLES = {
+  wall: { stroke: "rgba(226,232,240,0.92)", lineWidth: 1.35 },
+  self: { shape: "cross", fill: "#32b1f5" },
+  foe: { shape: "cross", fill: "#b14f1d" },
+  alert: { shape: "cross", fill: "#c10037" },
+  other: { shape: "cross", fill: "#284af4" },
+  focus: { shape: "ring", stroke: "#c10037", lineWidth: 1 },
+  range: { stroke: "rgba(148,163,184,0.4)", lineWidth: 0.75, dash: [2, 4] },
+  trail: { stroke: "rgba(125,211,252,0.5)", lineWidth: 1 },
+};
+
+/** Project AL world GEO + entities into BWI minimap pixel space (same as caracAL). */
+function buildMinimapPayload(cx, cy, entities, trailWorld, vision) {
+  const view = resolveMinimapView(vision || DEFAULT_VISION);
+  const opts = {
+    width: view.width,
+    height: view.height,
+    scale: view.scale,
+  };
+  const lines = projectWallsCached(mainGeo, cx, cy, opts);
+
+  const toPx = (x, y) => projectMinimapPoint(x, y, cx, cy, opts);
+
+  const markers = [];
+  for (let i = 0; i < entities.length; i++) {
+    const ent = entities[i];
+    const [px, py] = toPx(ent.x, ent.y);
+    if (
+      px < -2 ||
+      px >= view.width + 2 ||
+      py < -2 ||
+      py >= view.height + 2
+    ) {
+      continue;
+    }
+    const m = [px, py, ent.style];
+    if (ent.label) m.push(ent.label);
+    if (typeof ent.hp === "number") {
+      if (!ent.label) m.push("");
+      m.push(ent.hp);
+    }
+    markers.push(m);
+  }
+
+  const rings = [];
+  for (let i = 0; i < entities.length; i++) {
+    const ent = entities[i];
+    if (!ent.range) continue;
+    const [px, py] = toPx(ent.x, ent.y);
+    rings.push([px, py, Math.max(2, ent.range * view.scale), "range"]);
+  }
+
+  const trail = [];
+  for (let i = 0; i < trailWorld.length; i++) {
+    trail.push(toPx(trailWorld[i][0], trailWorld[i][1]));
+  }
+
+  return {
+    lines,
+    markers,
+    rings,
+    trail,
+    origin: [cx, cy],
+    scale: view.scale,
+    width: view.width,
+    height: view.height,
+    vision: view.vision,
+  };
+}
+
+function humanize_int(num, digits) {
+  const n = Number(num) || 0;
+  const d = digits != null ? digits : 1;
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(d) + "M";
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(d) + "k";
+  return String(Math.round(n));
+}
+
+function quick_bar_val(num, denom, humanize) {
+  const modif = humanize ? (x) => humanize_int(x, 1) : (x) => x;
+  const safeDenom = denom || 1;
+  return [(100 * num) / safeDenom, `${modif(num)} / ${modif(safeDenom)}`];
+}
 
 let BWI = new BotWebInterface({
-  title: "TEST: BWI",
-  updateRate: 500,
+  title: "TEST: BWI (caracAL + showcase)",
+  // Watchdog only — live publishes come from requestPublish() each beat.
+  updateRate: Math.max(DEMO_BEAT_MS * 10, 5000),
   port: 2080,
 });
 
+// Match caracAL's top-level panel slots for character columns.
 BWI.publisher.setDefaultStructure([
-  { name: "botUIId", type: "text", label: "BotUI ID" },
-  { name: "name", type: "text", label: "Name" },
-  { name: "ticks", type: "text", label: "ticks" },
+  { name: "server", type: "botUI" },
+  { name: "party", type: "botUI" },
+  { name: "character", type: "botUI" },
+  { name: "target", type: "botUI" },
+  { name: "loot", type: "botUI" },
+]);
+
+const characterSchema = [
+  { name: "header", type: "leftMiddleRightText" },
+  { name: "header2", type: "leftMiddleRightText" },
+  {
+    name: "minimap",
+    type: "minimap",
+    label: "Map",
+    options: {
+      width: DEMO_MMAP.width,
+      height: DEMO_MMAP.height,
+      scale: DEMO_MMAP.scale,
+      smoothMs: DEMO_BEAT_MS,
+      styles: MINIMAP_STYLES,
+    },
+  },
   {
     name: "health",
-    type: "labelProgressBar", // this expects value to be a tuple the first value being the bar width and the second value being the text on the label
+    type: "labelProgressBar",
     label: "Health",
-    options: { color: "red", size: "base" },
+    options: { color: "red" },
   },
   {
     name: "mana",
-    type: "labelProgressBar", // this expects value to be a tuple the first value being the bar width and the second value being the text on the label
+    type: "labelProgressBar",
     label: "Mana",
     options: { color: "blue" },
   },
   {
     name: "xp",
-    type: "progressBar", // this renders the value and sets the with of the bar to the value
+    type: "labelProgressBar",
     label: "XP",
     options: { color: "green" },
   },
+  { name: "xpText", type: "leftMiddleRightText" },
+  {
+    name: "inv",
+    type: "labelProgressBar",
+    label: "Inventory",
+    options: { color: "brown" },
+  },
+  {
+    name: "bank",
+    type: "labelProgressBar",
+    label: "bank",
+    options: { color: "brown" },
+  },
+  { name: "gold", type: "leftMiddleRightText" },
+  { name: "timers", type: "timerList" },
+];
 
-  {
-    name: "chart",
-    type: "chart", // this renders the value and sets the with of the bar to the value
-    label: "Chart",
-    options: {
-      type: "bar",
-    },
-  },
-  {
-    name: "chart2",
-    type: "chart", // this renders the value and sets the with of the bar to the value
-    label: "Chart",
-    options: {
-      type: "line",
-    },
-  },
-  {
-    name: "chart3",
-    type: "chart", // this renders the value and sets the with of the bar to the value
-    label: "Chart",
-    options: {
-      type: "bar",
-    },
-  },
-
-  // botUI is a container used for "widgets" inside the "main" container
-  // TODO: define columns mode or rows mode where each subwidget is ordered depending on this
-  { name: "compose", type: "botUI" },
-  { name: "bots", type: "botUI", label: "Status" },
-  {
-    name: "bots2",
-    type: "botUI",
-    label: "Status",
-    options: { flexDirection: "column" },
-  },
-]);
-
-let setIntervalTicks = 0;
 /**
- *
- * @type {Array<BotUI>}
+ * @type {Array}
  */
 var interfaces = [];
-var subInterfaces = [];
 
-/**
- *
- * @returns {BotUI}
- */
 function create() {
+  const charName = generateName();
+  const ctype = CLASS_NAMES[getRandomInt(0, CLASS_NAMES.length)];
   const botUI = BWI.publisher.createInterface();
-  botUI.setDataSource(function () {
-    return {
-      botUIId: botUI.id,
-      name: generateName(),
-      ticks: setIntervalTicks,
-    };
-  });
 
-  // TODO: A Character box
-  // character name top left
-  // status in the middle
-  // level on the right side
-  // Death Inidicator, next to charactername? 🪦 😵 💀 ☠️
-  // progressbar for health, should be a little higher
-  // progressbar for manae, should be a little smaller than health
-  // Inventory X / Y with a chart below it with the last N inventory changes (would be cool if the chart was inside the progressbar)
-  // Gold perhaps also with a chart? Also show XP/h
-  // Time To Level UP progressbar with changes overtime?
-  // debuff progressbar with time left (specifically for monster hunts)
-
-  // progressbar wtih XP also show XP/h
-
-  // TODO: DPS/ HPS?
-
-  // TODO: A Target box
-  // Name left level right
-  // Health progressbar
-  // Mana progressbar
-  // debuff progressbar
-
-  // TODO: A Loot box
-
-  // TODO: how would we render a monster icon? add sprite/spritesheet support where we give it a url and some data for rendering the sprite?
-  // TODO: what about an item icon?
-  // TODO: show (de)buffs? monsterhunt
-  // TODO: gradient colored progressbar?
-  // TODO: potions available?
-  // TODO: Show tracktrix? computer image?
-  let subBotUI1 = botUI.createSubBotUI(
+  const serverBotUI = botUI.createSubBotUI(
     [
+      { name: "header", type: "leftMiddleRightText" },
       {
-        name: "header",
-        type: "leftMiddleRightText",
-        options: {
-          bgColor: "grey",
-          leftColor: "pink",
-          rightColor: "purple",
-        },
-      },
-      {
-        name: "inventory",
-        type: "progressBar", // this renders the value and sets the with of the bar to the value
-        // label: "Gold",
-        options: { color: "brown" },
-      },
-      {
-        name: "inventoryChart",
-        type: "chart", // this renders the value and sets the with of the bar to the value
+        name: "pings",
+        type: "chart",
         label: "Chart",
-        options: {
-          type: "line",
-        },
+        options: { type: "bar" },
       },
-      {
-        name: "debuffs",
-        type: "timerList", // should be a list of "timers"
-        /**
-         * [x/y Irradiated Goo      Xm Ys        Hunt] with the time left as a progress bar out of total time
-         * [Cursed                  Xm Ys            ]
-         * [Burned                  Xm Ys        x???] could show intensity
-         *
-         * so the timer list needs to be able to supply
-         * left, middle,right text, as well a "progress" for the progressbar
-         */
-        // label: "Gold",
-        // options: { color: "brown" },
-      },
-      // TODO: Skills/Actions on cooldown?
-      // TODO: "Stacked" line chart https://www.chartjs.org/docs/latest/samples/bar/stacked.html
     ],
-    "bots"
-  );
-  let subBotUI2 = botUI.createSubBotUI(
-    [
-      { name: "foo", type: "text", label: "foo sub2" },
-      { name: "id", type: "text", label: "id" },
-      { name: "toggleActive", type: "button", label: "asd" },
-    ],
-    "bots"
+    "server"
   );
 
-  let subBotUI3 = botUI.createSubBotUI(
+  const partyBotUI = botUI.createSubBotUI(
     [
-      { name: "foo", type: "text", label: "foo sub3" },
-      { name: "id", type: "text", label: "id" },
+      { name: "header", type: "leftMiddleRightText" },
+      {
+        name: "health_mana",
+        type: "chart",
+        label: "Chart",
+        options: { type: "bar" },
+      },
     ],
-    "bots2"
+    "party"
   );
-  let subBotUI4 = botUI.createSubBotUI(
+
+  const characterBotUI = botUI.createSubBotUI(characterSchema, "character");
+
+  const targetBotUI = botUI.createSubBotUI(
     [
-      { name: "foo", type: "text", label: "foo sub4" },
-      { name: "id", type: "text", label: "id" },
-      // TODO: A Pie chart of loot types(tier?, type? wtype?) looted the last 12h
+      { name: "header", type: "leftMiddleRightText" },
+      { name: "header2", type: "leftMiddleRightText" },
+      { name: "header3", type: "leftMiddleRightText" },
+      {
+        name: "health",
+        type: "labelProgressBar",
+        label: "Health",
+        options: { color: "red" },
+      },
+      {
+        name: "mana",
+        type: "labelProgressBar",
+        label: "Mana",
+        options: { color: "blue" },
+      },
+      { name: "timers", type: "timerList" },
+    ],
+    "target"
+  );
+
+  const lootBotUI = botUI.createSubBotUI(
+    [
+      { name: "lootHeader", type: "leftMiddleRightText" },
       {
         name: "loot",
         type: "table",
-        label: "Looted (12h)",
         headers: ["When", "Item", "#"],
-      }, // TODO: left label and right label?
+      },
     ],
-    "bots2"
+    "loot"
   );
 
-  let subBotUI5 = botUI.createSubBotUI(
-    [
-      // TODO: the purpose of this sub UI entry is to "group" or "compose" widgets of info based on multiple render types
-      /**
-       * A Target widget showing an image/sprite of the target, name, level, health, mana for example
-       * Here we are also nesting layers to mimmic the LeftMiddleRightText component with just the text component.
-       * --------------------------------------
-       * |         | [TEXT]    [TEXT]    [TEXT]|
-       * |         | [PROGRESS BAR     ] [TEXT]|
-       * |  IMAGE  | [PROGRESS BAR            ]|
-       * |  SPRITE | [PROGRESS BAR            ]|
-       * |         | [PROGRESS BAR            ]|
-       * --------------------------------------
-       */
-      // { name: "foo", type: "text", label: "foo sub4" },
-      // TODO: Another thing one could do is layer the following components on top of each other
-      // [TEXT] [CHART] [PROGRESSBAR]
-      // This would render a progressbar at the lowest z-index, a chart "ontop" of it and the text for the progressbar above the chart
-      // this would allow you to make a healthbar with the current value as the progressbar, but an average health chart also r endered inside the progressbar
-      // alternatively this should just be a specific widget one can use
-    ],
-    "compose"
-  );
-
-  return [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4, subBotUI5];
+  // Keep identity off botUI.cache — Publisher.fetchData() overwrites that.
+  return {
+    botUI,
+    serverBotUI,
+    partyBotUI,
+    characterBotUI,
+    targetBotUI,
+    lootBotUI,
+    name: charName,
+    ctype,
+    level: getRandomInt(40, 90),
+  };
 }
 
-for (let l = 0; l < 4; l++) {
+for (let l = 0; l < 2; l++) {
   interfaces[l] = create();
 }
 
-const lootByCharacter = {};
-const debuffsByCharacter = {};
-setInterval(function () {
-  setIntervalTicks++;
-  let [botUI, subBotUI1, subBotUI2, subBotUI3, subBotUI4, subBotUI5] =
-    interfaces.shift();
+// Showcase last so character columns stay contiguous; recreate after recycle.
+let showcaseRoot = null;
+let showcaseNested = null;
+const showcaseState = {
+  plain: 55,
+  rating: 0.62,
+  line: [12, 19, 14, 22, 18, 25, 21, 28, 24, 30],
+  multiA: [40, 55, 35, 60],
+  multiB: [25, 40, 50, 30],
+  clicks: 0,
+  nestedPct: 40,
+};
 
-  // This destroy was probably for testing shutting down an interface and creating a new
-  if (setIntervalTicks % 100 == 0) {
-    botUI.destroy();
-    interfaces.push(create());
-    return;
-  }
-
-  let i = 0;
-  // Update data on the interfaces. this function will be evaluated often as Publisher will call it based on the updateRate
-  botUI.setDataSource(function () {
-    const maxHealth = 3000;
-    const health = Math.random() * maxHealth;
-    const healthPercentage = (100 * health) / maxHealth;
-
-    const maxMana = 3000;
-    const mana = Math.random() * maxMana;
-    const manaPercentage = (100 * mana) / maxMana;
-
+function wireShowcaseSources() {
+  showcaseRoot.setDataSource(function () {
     return {
-      botUIId: botUI.id,
-      ticks: setIntervalTicks,
-      name: botUI.cache.name,
-      health: [
-        healthPercentage.toFixed(2),
-        `${health.toFixed(2)} / ${maxHealth}`,
+      blurb: "Extras beyond the caracAL panels",
+      sizes: {
+        left: "LMR",
+        middle: "colored",
+        right: "sizes",
+        options: {
+          leftColor: "#38bdf8",
+          middleColor: "#fbbf24",
+          rightColor: "#f472b6",
+          size: "lg",
+        },
+      },
+      plainBar: showcaseState.plain,
+      rating: [
+        showcaseState.rating * 100,
+        (showcaseState.rating * 10).toFixed(1) + " / 10",
       ],
-      mana: [manaPercentage.toFixed(2), `${mana.toFixed(2)} / ${maxMana}`],
-      xp: (Math.random() * 100).toFixed(2),
-      chart: {
-        // bar chart
+      lineChart: {
         data: {
-          labels: [0, 1, 2, 3, 4, 5, 6],
+          labels: showcaseState.line.map((_, i) => i),
           datasets: [
             {
-              data: [
-                Math.random() * 10,
-                Math.random() * 20,
-                Math.random() * 15,
-                Math.random() * 25,
-                Math.random() * 22,
-                Math.random() * 30,
-                Math.random() * 28,
-              ],
+              borderColor: "rgb(56, 189, 248)",
+              backgroundColor: "rgba(56, 189, 248, 0.15)",
+              data: showcaseState.line.slice(),
+              fill: true,
+              tension: 0.25,
             },
           ],
         },
       },
-      // line chart
-      chart2: {
+      multiBar: {
         data: {
-          labels: [0, 1, 2, 3, 4, 5, 6],
+          labels: ["A", "B", "C", "D"],
           datasets: [
             {
-              data: [
-                Math.random() * 10,
-                Math.random() * 20,
-                Math.random() * 15,
-                Math.random() * 25,
-                Math.random() * 22,
-                Math.random() * 30,
-                Math.random() * 28,
-              ],
+              backgroundColor: "rgb(248, 113, 113)",
+              data: showcaseState.multiA.slice(),
+            },
+            {
+              backgroundColor: "rgb(96, 165, 250)",
+              data: showcaseState.multiB.slice(),
             },
           ],
         },
       },
-      // bar chart multiple datasets
-      chart3: {
-        data: {
-          labels: [0, 1, 2, 3, 4, 5, 6],
-          datasets: [
-            {
-              // borderColor: 'rgb(255, 99, 132)',
-              backgroundColor: "rgb(255, 99, 132)",
-              data: [
-                Math.random() * 10,
-                Math.random() * 20,
-                Math.random() * 15,
-                Math.random() * 25,
-                Math.random() * 22,
-                Math.random() * 30,
-                Math.random() * 28,
-              ],
-            },
-            {
-              // borderColor: 'rgb(54, 162, 235)',
-              backgroundColor: "rgb(54, 162, 235)",
-              data: [
-                Math.random() * 10,
-                Math.random() * 20,
-                Math.random() * 15,
-                Math.random() * 25,
-                Math.random() * 22,
-                Math.random() * 30,
-                Math.random() * 28,
-              ],
-            },
-          ],
-        },
+      action: "clicks: " + showcaseState.clicks,
+    };
+  });
+
+  showcaseNested.setDataSource(function () {
+    return {
+      row: {
+        left: "compose",
+        middle: "sub-botUI",
+        right: "#" + showcaseRoot.id,
       },
+      note: "child of showcase.nested",
+      mini: showcaseState.nestedPct,
     };
   });
+}
 
-  if (!debuffsByCharacter[subBotUI1.id]) {
-    debuffsByCharacter[subBotUI1.id] = {};
+function createShowcase() {
+  if (showcaseRoot) {
+    showcaseRoot.destroy();
+    showcaseRoot = null;
+    showcaseNested = null;
   }
-  const debuffs = debuffsByCharacter[subBotUI1.id];
-  if (Object.keys(debuffs).length < 5) {
-    if (!debuffs.hunt && Math.random() < 0.3) {
-      debuffs.hunt = {
-        name: "Irradiated Goo",
-        initialTime: 30 * 60 * 1000, // 30m
-        ms: 30 * 60 * 1000, // 30m
-      };
-    }
-    if (!debuffs.burned && Math.random() < 0.3) {
-      debuffs.burned = {
-        name: "Burned",
-        initialTime: 10000, // 10s
-        ms: 10000, // 10s
-        // TODO: intensity?
-      };
-    }
-
-    if (!debuffs.cursed && Math.random() < 0.3) {
-      debuffs.burned = {
-        name: "Cursed",
-        initialTime: 5000, // 5s
-        ms: 5000, // 5s
-      };
-    }
-
-    if (!debuffs.stack && Math.random() < 0.3) {
-      debuffs.stack = {
-        name: "Stack",
-        initialTime: 10000, // 10s
-        ms: 10000, // 10s
-        // TODO: stack count?
-      };
-    }
-  }
-
-  // simulate debuffs counting down, or hunt kill count going up
-  for (const debuffName in debuffs) {
-    const debuff = debuffs[debuffName];
-
-    debuff.ms -= 1000;
-
-    if (debuff.ms < 0) {
-      delete debuffs[debuffName];
-    }
-
-    // widget specific properties
-    debuff.leftText = `${debuff.name}`;
-    debuff.middleText = msToTime(debuff.ms);
-    // right text?
-    debuff.percentage = (Math.max(0, debuff.ms) / debuff.initialTime) * 100;
-  }
-
-  subBotUI1.setDataSource(function () {
-    return {
-      header: {
-        left: "Left",
-        // middle: "middle",
-        right: "right",
-      },
-      inventory: (Math.random() * 100).toFixed(2),
-      inventoryChart: {
-        data: {
-          labels: [0, 1, 2, 3, 4, 5, 6],
-          datasets: [
-            {
-              data: [
-                Math.random() * 10,
-                Math.random() * 20,
-                Math.random() * 15,
-                Math.random() * 25,
-                Math.random() * 22,
-                Math.random() * 30,
-                Math.random() * 28,
-              ],
-            },
-          ],
-        },
-      },
-      debuffs: Object.values(debuffsByCharacter[subBotUI1.id]),
-    };
-  });
-
-  subBotUI2.setDataSource(function () {
-    return {
-      id: subBotUI2.id,
-      foo: i++,
-    };
-  });
-
-  subBotUI3.setDataSource(function () {
-    return {
-      id: subBotUI3.id,
-      foo: i++,
-    };
-  });
-
-  if (!lootByCharacter[subBotUI4.id]) {
-    lootByCharacter[subBotUI4.id] = [];
-  }
-
-  if (Math.random() < 0.1) {
-    const loot = [new Date(), generateName(), Math.floor(Math.random() * 100)];
-    lootByCharacter[subBotUI4.id].splice(0, 0, loot);
-    lootByCharacter[subBotUI4.id] = lootByCharacter[subBotUI4.id].slice(0, 15);
-  }
-
-  subBotUI4.setDataSource(function () {
-    return {
-      id: subBotUI4.id,
-      foo: i++,
-      loot: lootByCharacter[subBotUI4.id].map((x) => [
-        timeAgo(x[0]),
-        x[1],
-        x[2],
-      ]),
-    };
-  });
-
-  interfaces.push([
-    botUI,
-    subBotUI1,
-    subBotUI2,
-    subBotUI3,
-    subBotUI4,
-    subBotUI5,
+  showcaseRoot = BWI.publisher.createInterface([
+    { name: "blurb", type: "text", label: "Showcase" },
+    {
+      name: "sizes",
+      type: "leftMiddleRightText",
+      options: { size: "lg" },
+    },
+    {
+      name: "plainBar",
+      type: "progressBar",
+      label: "plain %",
+      options: { color: "#0ea5e9", size: "base" },
+    },
+    {
+      name: "rating",
+      type: "labelProgressBar",
+      label: "Rating",
+      options: { color: "#a855f7", size: "xs" },
+    },
+    {
+      name: "lineChart",
+      type: "chart",
+      label: "Line",
+      options: { type: "line" },
+    },
+    {
+      name: "multiBar",
+      type: "chart",
+      label: "Multi bar",
+      options: { type: "bar" },
+    },
+    { name: "action", type: "button", label: "Ping action" },
+    { name: "nested", type: "botUI", label: "Nested" },
   ]);
-}, 1000);
+
+  showcaseNested = showcaseRoot.createSubBotUI(
+    [
+      { name: "row", type: "leftMiddleRightText", options: { size: "sm" } },
+      { name: "note", type: "text", label: "nested text" },
+      {
+        name: "mini",
+        type: "progressBar",
+        options: { color: "#22c55e", size: "xs" },
+      },
+    ],
+    "nested"
+  );
+  wireShowcaseSources();
+}
+
+createShowcase();
+
+const stateByCharacter = {};
+function getState(id) {
+  if (!stateByCharacter[id]) {
+    stateByCharacter[id] = {
+      health: 0.55 + Math.random() * 0.35,
+      mana: 0.35 + Math.random() * 0.5,
+      xp: 0.15 + Math.random() * 0.5,
+      inv: 0.3 + Math.random() * 0.4,
+      bank: 0.2 + Math.random() * 0.5,
+      gold: 5e5 + Math.random() * 2e6,
+      goldPerHour: 8e4 + Math.random() * 2e5,
+      xpPerHour: 2e6 + Math.random() * 5e6,
+      maxHp: 3000,
+      maxMp: 2000,
+      maxXp: 1e7,
+      isize: 42,
+      bankSlots: 96,
+      pings: [40, 42, 38, 55, 41, 39, 60, 44, 43, 41],
+      party: [
+        { name: "You", hp: 80, mp: 60 },
+        { name: "Priest", hp: 70, mp: 85 },
+        { name: "Warrior", hp: 95, mp: 40 },
+      ],
+      timers: {},
+      loot: [],
+      trail: [],
+      status: "farming",
+      beatAt: Date.now(),
+    };
+  }
+  return stateByCharacter[id];
+}
+
+function stepMeter(value, min, max, maxDelta) {
+  const next = value + (Math.random() * 2 - 1) * maxDelta;
+  return Math.max(min, Math.min(max, next));
+}
+
+function stepPings(pings) {
+  for (let i = 0; i < pings.length; i++) {
+    pings[i] = Math.max(20, Math.min(120, pings[i] + (Math.random() * 2 - 1) * 6));
+  }
+  // scroll
+  pings.shift();
+  pings.push(pings[pings.length - 1] + (Math.random() * 2 - 1) * 4);
+}
+
+function stepShowcase() {
+  showcaseState.plain = stepMeter(showcaseState.plain, 8, 98, 4);
+  showcaseState.rating = stepMeter(showcaseState.rating, 0.1, 0.98, 0.03);
+  showcaseState.nestedPct = stepMeter(showcaseState.nestedPct, 5, 95, 5);
+  if (Math.random() < 0.08) showcaseState.clicks += 1;
+
+  const line = showcaseState.line;
+  const last = line[line.length - 1];
+  line.shift();
+  line.push(Math.max(5, Math.min(40, last + (Math.random() * 2 - 1) * 4)));
+
+  for (let i = 0; i < showcaseState.multiA.length; i++) {
+    showcaseState.multiA[i] = stepMeter(showcaseState.multiA[i], 10, 90, 6);
+    showcaseState.multiB[i] = stepMeter(showcaseState.multiB[i], 10, 90, 6);
+  }
+}
+
+setInterval(function () {
+  // Occasionally recycle one character column (lifecycle stress).
+  // Recreate showcase afterward so it stays the rightmost column.
+  if (interfaces.length > 0 && Math.random() < 0.002) {
+    const doomed = interfaces.shift();
+    doomed.botUI.destroy();
+    interfaces.push(create());
+    createShowcase();
+  }
+
+  stepShowcase();
+
+  for (let n = 0; n < interfaces.length; n++) {
+    const iface = interfaces[n];
+    const {
+      serverBotUI,
+      partyBotUI,
+      characterBotUI,
+      targetBotUI,
+      lootBotUI,
+      name: charName,
+      ctype,
+      level,
+    } = iface;
+    const state = getState(characterBotUI.id);
+
+    state.health = stepMeter(state.health, 0.08, 0.98, 0.03);
+    state.mana = stepMeter(state.mana, 0.05, 0.98, 0.04);
+    state.xp = stepMeter(state.xp, 0.02, 0.98, 0.01);
+    state.inv = stepMeter(state.inv, 0.05, 0.95, 0.02);
+    state.bank = stepMeter(state.bank, 0.05, 0.95, 0.01);
+    state.gold += (Math.random() * 2 - 0.4) * 200;
+    stepPings(state.pings);
+
+    for (let i = 0; i < state.party.length; i++) {
+      // Percent of max, same shape as caracAL party chart datasets.
+      state.party[i].hp = stepMeter(state.party[i].hp, 20, 100, 3);
+      state.party[i].mp = stepMeter(state.party[i].mp, 10, 100, 4);
+    }
+
+    // Timers — sample remaining ms once; wall-clock helper for display
+    // (never decrement by beat size or timers race ahead of real time).
+    const now = Date.now();
+    const timers = state.timers;
+    if (Object.keys(timers).length < 4) {
+      if (!timers.hunt && Math.random() < 0.15) {
+        timers.hunt = {
+          name: "Irradiated Goo",
+          ims: 30 * 60 * 1000,
+          ms: 30 * 60 * 1000,
+          sampledAt: now,
+        };
+      }
+      if (!timers.burned && Math.random() < 0.2) {
+        timers.burned = {
+          name: "Burned",
+          ims: 10000,
+          ms: 10000,
+          sampledAt: now,
+        };
+      }
+      if (!timers.cursed && Math.random() < 0.15) {
+        timers.cursed = {
+          name: "Cursed",
+          ims: 8000,
+          ms: 8000,
+          sampledAt: now,
+        };
+      }
+      if (!timers.stack && Math.random() < 0.15) {
+        timers.stack = {
+          name: "Stack",
+          ims: 12000,
+          ms: 12000,
+          sampledAt: now,
+        };
+      }
+    }
+    const timerRows = [];
+    for (const key of Object.keys(timers)) {
+      const t = timers[key];
+      const row = timerPresentation({
+        name: t.name,
+        ms: t.ms,
+        ims: t.ims,
+        sampledAt: t.sampledAt,
+        now,
+      });
+      if (row.ms <= 0) {
+        delete timers[key];
+        continue;
+      }
+      timerRows.push(row);
+    }
+    state.beatAt = Math.random() < 0.97 ? now : state.beatAt || now;
+
+    // Minimap motion on main GEO
+    if (!state.trail) state.trail = [];
+    const trail = state.trail;
+    const phase = characterBotUI.id * 0.7;
+    const nowSec = now / 1000;
+    const angleAt = (sec) => sec * 0.55 + phase;
+    const posAt = (sec) => {
+      const a = angleAt(sec);
+      return [Math.cos(a) * 70, Math.sin(a) * 55];
+    };
+    const [selfX, selfY] = posAt(nowSec);
+    const angle = angleAt(nowSec);
+    let lastSec = trail._lastSec;
+    if (typeof lastSec !== "number") lastSec = nowSec - 1.2;
+    const step = 0.12;
+    for (let sec = lastSec + step; sec <= nowSec + 1e-6; sec += step) {
+      const [x, y] = posAt(sec);
+      const prev = trail[trail.length - 1];
+      if (!prev || Math.hypot(x - prev[0], y - prev[1]) >= 3) {
+        trail.push([x, y]);
+      }
+    }
+    trail._lastSec = nowSec;
+    while (trail.length > 40) trail.shift();
+
+    const foeX = selfX + Math.cos(angle * 2) * 45;
+    const foeY = selfY + Math.sin(angle * 2) * 35;
+    const beeX = selfX - 50;
+    const beeY = selfY + 28;
+    const entities = [
+      {
+        x: selfX,
+        y: selfY,
+        style: "self",
+        label: charName.split(" ")[0] || "You",
+        hp: state.health,
+        range: 40,
+      },
+      { x: foeX, y: foeY, style: "foe", label: "goo", hp: 0.55 },
+      { x: beeX, y: beeY, style: "alert", label: "bee", hp: 0.22 },
+      {
+        x: selfX + 36,
+        y: selfY - 40,
+        style: "other",
+        label: "Ally",
+        hp: 0.9,
+      },
+      { x: beeX, y: beeY, style: "focus" },
+    ];
+    const minimap = buildMinimapPayload(selfX, selfY, entities, trail);
+    minimap.title = charName;
+    minimap.map = "main";
+
+    const hp = state.health * state.maxHp;
+    const mp = state.mana * state.maxMp;
+    const xp = state.xp * state.maxXp;
+    const invUsed = Math.round(state.inv * state.isize);
+    const bankUsed = Math.round(state.bank * state.bankSlots);
+    const ttlMs =
+      state.xpPerHour > 0
+        ? ((state.maxXp - xp) * 3600000) / state.xpPerHour
+        : 0;
+
+    serverBotUI.setDataSource(function () {
+      return {
+        header: {
+          left: `${20 + (characterBotUI.id % 40)} online`,
+          middle: "EU I",
+          right: Math.floor(state.pings[state.pings.length - 1]),
+        },
+        pings: {
+          data: {
+            labels: state.pings.map((_, index) => index),
+            datasets: [{ data: state.pings.slice() }],
+          },
+        },
+      };
+    });
+
+    partyBotUI.setDataSource(function () {
+      return {
+        header: {
+          left: charName.split(" ")[0] || "party",
+          middle: "",
+          right: state.party.length,
+        },
+        health_mana: {
+          data: {
+            labels: state.party.map((p) => p.name),
+            datasets: [
+              {
+                backgroundColor: "rgb(255, 99, 132)",
+                data: state.party.map((p) => p.hp),
+              },
+              {
+                backgroundColor: "rgb(54, 162, 235)",
+                data: state.party.map((p) => p.mp),
+              },
+            ],
+          },
+        },
+      };
+    });
+
+    characterBotUI.setDataSource(function () {
+      return {
+        header: {
+          left: charName,
+          middle: state.status,
+          right: level,
+          options: { leftColor: CLASS_COLOR[ctype] },
+        },
+        header2: {
+          left: "main",
+          middle: "",
+          right: `${selfX.toFixed(0)}, ${selfY.toFixed(0)}`,
+          options: {
+            beatAt: state.beatAt,
+            staleAfterSec: 2,
+          },
+        },
+        minimap,
+        health: quick_bar_val(hp, state.maxHp, true),
+        mana: quick_bar_val(mp, state.maxMp, true),
+        xp: quick_bar_val(xp, state.maxXp, true),
+        xpText: {
+          left: `XP/h ${humanize_int(state.xpPerHour, 1)}`,
+          middle: "",
+          right: ttlMs > 0 ? `${formatDuration(ttlMs)} TTLU` : "N/A TTLU",
+          options:
+            ttlMs > 0
+              ? { levelUpAt: now + ttlMs, etaSuffix: " TTLU" }
+              : { levelUpAt: 0, etaFallback: "N/A TTLU" },
+        },
+        inv: quick_bar_val(invUsed, state.isize),
+        bank: quick_bar_val(bankUsed, state.bankSlots),
+        gold: {
+          left: `Gold: ${humanize_int(state.gold, 1)}`,
+          middle: "",
+          right: `${humanize_int(state.goldPerHour, 1)} G/h`,
+        },
+        timers: timerRows,
+      };
+    });
+
+    const targetHp = 400 + Math.sin(nowSec) * 80;
+    const targetMaxHp = 800;
+    targetBotUI.setDataSource(function () {
+      return {
+        header: {
+          left: "bee",
+          middle: charName.split(" ")[0] || "",
+          right: 12,
+        },
+        header2: {
+          left: "bee",
+          middle: "",
+          right: `${Math.hypot(beeX - selfX, beeY - selfY).toFixed(0)} 📏`,
+        },
+        header3: {
+          left: "main",
+          middle: "",
+          right: `${beeX.toFixed(0)}, ${beeY.toFixed(0)}`,
+        },
+        health: quick_bar_val(targetHp, targetMaxHp, true),
+        mana: quick_bar_val(0, 1, true),
+        timers: timerRows.slice(0, 2),
+      };
+    });
+
+    if (Math.random() < 0.08) {
+      state.loot.splice(0, 0, [
+        new Date(),
+        generateName(),
+        1 + Math.floor(Math.random() * 5),
+      ]);
+      state.loot = state.loot.slice(0, 12);
+    }
+    lootBotUI.setDataSource(function () {
+      return {
+        lootHeader: {
+          left: `📦 ${state.loot.length}`,
+          middle: "",
+          right: `${state.loot.reduce((a, x) => a + x[2], 0)} items`,
+        },
+        loot: state.loot.map((x) => [timeAgo(x[0]), x[1], x[2]]),
+      };
+    });
+  }
+
+  if (typeof BWI.publisher.requestPublish === "function") {
+    BWI.publisher.requestPublish();
+  }
+}, DEMO_BEAT_MS);
 
 function capFirst(string) {
   if (!string) return;
@@ -481,14 +773,13 @@ function getRandomInt(min, max) {
 }
 
 function generateName() {
-  const name =
-    capFirst(name1[getRandomInt(0, name1.length + 1)]) +
+  return (
+    capFirst(name1[getRandomInt(0, name1.length)]) +
     " " +
-    capFirst(name2[getRandomInt(0, name2.length + 1)]);
-  return name;
+    capFirst(name2[getRandomInt(0, name2.length)])
+  );
 }
 
-// https://stackoverflow.com/a/74456486
 function timeAgo(date) {
   var seconds = Math.floor(
     (new Date().getTime() - new Date(date).getTime()) / 1000
@@ -506,25 +797,10 @@ function timeAgo(date) {
   return Math.floor(seconds) + " seconds";
 }
 
-function msToTime(duration) {
-  const milliseconds = Math.floor((duration % 1000) / 100);
-  const seconds = Math.floor((duration / 1000) % 60);
-  const minutes = Math.floor((duration / (1000 * 60)) % 60);
-  const hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
-
-  const hoursString = hours < 10 ? "0" + hours.toString() : hours.toString();
-  const minutesString =
-    minutes < 10 ? "0" + minutes.toString() : minutes.toString();
-  const secondsString =
-    seconds < 10 ? "0" + seconds.toString() : seconds.toString();
-
-  return (
-    hoursString +
-    ":" +
-    minutesString +
-    ":" +
-    secondsString +
-    "." +
-    milliseconds.toString()
-  );
+function formatDuration(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }

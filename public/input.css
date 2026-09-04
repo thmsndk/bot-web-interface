@@ -2,15 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: m5x7;
-  src: url(/public/m5x7.ttf);
+html {
+  /* Bumps all Tailwind rem sizes (text-sm, text-xs, …) a notch. */
+  font-size: 18px;
 }
 
 body {
-  font-family: m5x7, Helvetica, Arial, sans-serif;
-  font-size: 24px;
-  line-height: 22px;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.4;
   /* color: white; */
 }
 
@@ -25,4 +25,97 @@ body {
 
 #pb-container {
   color: black;
+}
+
+/*
+ * Progress bars: short ease so fills track the beat without feeling "behind".
+ * Timer/cooldown bars snap — a 450ms width ease made countdowns look lagged
+ * while the chip text was already correct.
+ */
+[role="progressbar"] .bar {
+  transition: width 160ms linear;
+}
+.timer-bar .bar {
+  transition: none;
+}
+
+/* Progress labels: same readability treatment as timer chips. */
+[role="progressbar"] .value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+/*
+ * Timer bars: white-on-blue + leading-none looked jagged (ClearType on a
+ * saturated fill). Name stays light on the bar; countdown uses a dark chip.
+ */
+.timer-bar {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+.timer-bar .timer-name {
+  color: #f1f5f9;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.65);
+}
+.timer-bar .timer-time {
+  color: #f8fafc;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.25rem;
+  background: rgba(2, 6, 23, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.22);
+}
+.timer-bar .timer-right {
+  color: #e2e8f0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.timer-bar .timer-right:empty,
+.timer-bar .timer-time:empty {
+  display: none;
+}
+
+/* Timer bars: urgent when <10s remaining (BotUI adds .timer-urgent). */
+[role="progressbar"].timer-urgent {
+  box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.95);
+}
+[role="progressbar"].timer-urgent .bar {
+  background-color: #c2410c !important;
+}
+[role="progressbar"].timer-urgent .timer-time {
+  background: rgba(67, 20, 7, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.55);
+  color: #fff7ed;
+  animation: timer-urgent-chip 0.85s ease-in-out infinite;
+}
+@keyframes timer-urgent-chip {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.2);
+  }
+}
+
+/* Minimap fullscreen identity chrome */
+.minimapDisplay:fullscreen .minimapFsTitle,
+.minimapDisplay:-webkit-full-screen .minimapFsTitle {
+  display: block !important;
+}
+.minimapDisplay:fullscreen .minimapToolbar,
+.minimapDisplay:-webkit-full-screen .minimapToolbar {
+  opacity: 1 !important;
+  background: rgba(2, 6, 23, 0.82) !important;
 }
