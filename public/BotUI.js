@@ -13,7 +13,8 @@ const BwiClock = {
     if (this.rafId != null) return;
     const loop = () => {
       this.rafId = requestAnimationFrame(loop);
-      this.tick();
+      // Skip while backgrounded — timers catch up on the next visible frame.
+      if (!document.hidden) this.tick();
     };
     this.rafId = requestAnimationFrame(loop);
   },
@@ -30,21 +31,21 @@ const BwiClock = {
   },
   tick() {
     const now = Date.now();
-    for (const el of Array.from(this.timers)) {
+    for (const el of this.timers) {
       if (!el.isConnected) {
         this.timers.delete(el);
         continue;
       }
       paintTimerBar(el, now);
     }
-    for (const entry of Array.from(this.ages)) {
+    for (const entry of this.ages) {
       if (!entry.row || !entry.row.isConnected) {
         this.ages.delete(entry);
         continue;
       }
       paintBeatAge(entry, now);
     }
-    for (const entry of Array.from(this.etas)) {
+    for (const entry of this.etas) {
       if (!entry.el || !entry.el.isConnected) {
         this.etas.delete(entry);
         continue;
@@ -99,13 +100,25 @@ function paintTimerBar(el, now) {
   if (!Number.isFinite(endsAt)) return;
   const left = Math.max(0, endsAt - now);
   const denom = Number.isFinite(ims) && ims > 0 ? ims : 1;
-  const widthStr = (left / denom) * 100 + "%";
-  const barEl = el.getElementsByClassName("bar")[0];
-  const midEl = el.getElementsByClassName("textValueMiddle")[0];
-  if (barEl && barEl.style.width !== widthStr) barEl.style.width = widthStr;
   const midNext = bwiMsToTime(left);
-  if (midEl && midEl.textContent !== midNext) midEl.textContent = midNext;
-  el.classList.toggle("timer-urgent", left > 0 && left < 10000);
+  const urgent = left > 0 && left < 10000;
+  const prev = el._bwiPaint;
+  // Drive bar + label off the same tenths boundary so we never rewrite
+  // style.width every rAF (that was thrashing layout / INP).
+  if (prev && prev.mid === midNext && prev.urgent === urgent) return;
+  if (!el._bwiBar) el._bwiBar = el.getElementsByClassName("bar")[0];
+  if (!el._bwiMid) el._bwiMid = el.getElementsByClassName("textValueMiddle")[0];
+  const barEl = el._bwiBar;
+  const midEl = el._bwiMid;
+  const widthStr = Math.round((left / denom) * 1000) / 10 + "%";
+  if (!prev) el._bwiPaint = { mid: "", width: "", urgent: null };
+  const paint = el._bwiPaint;
+  if (barEl && paint.width !== widthStr) barEl.style.width = widthStr;
+  if (midEl && paint.mid !== midNext) midEl.textContent = midNext;
+  if (paint.urgent !== urgent) el.classList.toggle("timer-urgent", urgent);
+  paint.mid = midNext;
+  paint.width = widthStr;
+  paint.urgent = urgent;
 }
 
 function paintBeatAge(entry, now) {
@@ -595,8 +608,12 @@ BotUi.prototype.render = function (onlyNames) {
             ? Math.max(0, Math.min(100, value))
             : 0;
         const shown = Math.round(pct);
-        row.getElementsByClassName("bar")[0].style.width = shown + "%";
-        this._setProgressValueText(row, shown + "%");
+        const widthStr = shown + "%";
+        if (row._pbWidth !== widthStr) {
+          row.getElementsByClassName("bar")[0].style.width = widthStr;
+          row._pbWidth = widthStr;
+        }
+        this._setProgressValueText(row, widthStr);
         break;
       }
       case "labelProgressBar": {
@@ -605,8 +622,11 @@ BotUi.prototype.render = function (onlyNames) {
             ? Math.max(0, Math.min(100, value[0]))
             : 0;
         // One decimal keeps the fill smooth without thrashing subpixels every beat.
-        row.getElementsByClassName("bar")[0].style.width =
-          Math.round(pct * 10) / 10 + "%";
+        const widthStr = Math.round(pct * 10) / 10 + "%";
+        if (row._pbWidth !== widthStr) {
+          row.getElementsByClassName("bar")[0].style.width = widthStr;
+          row._pbWidth = widthStr;
+        }
         this._setProgressValueText(row, value[1]);
         break;
       }
@@ -695,6 +715,8 @@ BotUi.prototype.render = function (onlyNames) {
           if (Number.isFinite(end)) {
             timerElement.dataset.endsAt = String(end);
             timerElement.dataset.ims = String(initial);
+            // Force a paint after publisher refresh even if tenths label matches.
+            if (timerElement._bwiPaint) timerElement._bwiPaint.mid = null;
             BwiClock.timers.add(timerElement);
             BwiClock.ensure();
             paintTimerBar(timerElement, now);
@@ -773,31 +795,63 @@ BotUi.prototype.render = function (onlyNames) {
           });
         } else {
           const chart = Chart.getChart(canvas);
-          // Mutate in place so Chart.js tweens from prior values.
-          // Replacing `chart.data` every beat piles animator items and looks like snaps.
-          if (data && Array.isArray(data.labels)) {
-            chart.data.labels = data.labels;
-          }
           const nextSets = (data && data.datasets) || [];
+          let changed = false;
+
+          if (data && Array.isArray(data.labels)) {
+            const labels = chart.data.labels || [];
+            if (labels.length !== data.labels.length) {
+              chart.data.labels = data.labels;
+              changed = true;
+            } else {
+              for (let li = 0; li < data.labels.length; li++) {
+                if (labels[li] !== data.labels[li]) {
+                  chart.data.labels = data.labels;
+                  changed = true;
+                  break;
+                }
+              }
+            }
+          }
+
           if (chart.data.datasets.length !== nextSets.length) {
             chart.data.datasets = nextSets;
+            changed = true;
           } else {
             for (let i = 0; i < nextSets.length; i++) {
               const src = nextSets[i] || {};
               const dst = chart.data.datasets[i];
               for (const key of Object.keys(src)) {
-                if (key === "data" && Array.isArray(src.data) && Array.isArray(dst.data)) {
-                  dst.data.length = src.data.length;
-                  for (let j = 0; j < src.data.length; j++) {
-                    dst.data[j] = src.data[j];
+                if (
+                  key === "data" &&
+                  Array.isArray(src.data) &&
+                  Array.isArray(dst.data)
+                ) {
+                  let seriesChanged = dst.data.length !== src.data.length;
+                  if (!seriesChanged) {
+                    for (let j = 0; j < src.data.length; j++) {
+                      if (dst.data[j] !== src.data[j]) {
+                        seriesChanged = true;
+                        break;
+                      }
+                    }
                   }
-                } else {
+                  if (seriesChanged) {
+                    dst.data.length = src.data.length;
+                    for (let j = 0; j < src.data.length; j++) {
+                      dst.data[j] = src.data[j];
+                    }
+                    changed = true;
+                  }
+                } else if (dst[key] !== src[key]) {
                   dst[key] = src[key];
+                  changed = true;
                 }
               }
             }
           }
-          chart.update("none");
+
+          if (changed) chart.update("none");
         }
         break;
     }
@@ -876,6 +930,41 @@ BotUi.prototype.addTimerElement = function (row, name, options, index) {
  * Fullscreen shows title (value.title / options.title / self marker label).
  * Fog is a soft depth cue at 1×; at higher zoom rely on walls/markers instead.
  */
+
+function bwiAdvanceMinimapCamera(ui) {
+  if (
+    !ui ||
+    !ui.camSmooth ||
+    !ui.camSmooth.enabled ||
+    !ui.camSmooth.cam ||
+    !ui.camSmooth.target ||
+    ui.camSmooth.settled
+  ) {
+    return false;
+  }
+  const now = performance.now();
+  const sm = ui.camSmooth;
+  const dt = sm.lastTs ? Math.min(48, Math.max(0, now - sm.lastTs)) : 16;
+  sm.lastTs = now;
+  const tau = Math.max(40, sm.tau || 280);
+  const a = 1 - Math.exp(-dt / tau);
+  const cam = sm.cam;
+  const tgt = sm.target;
+  cam[0] += (tgt[0] - cam[0]) * a;
+  cam[1] += (tgt[1] - cam[1]) * a;
+  const lag2 =
+    (tgt[0] - cam[0]) * (tgt[0] - cam[0]) +
+    (tgt[1] - cam[1]) * (tgt[1] - cam[1]);
+  if (lag2 < 0.0025) {
+    cam[0] = tgt[0];
+    cam[1] = tgt[1];
+    sm.settled = true;
+    sm.lastTs = 0;
+    return false;
+  }
+  return true;
+}
+
 BotUi.prototype.renderMinimap = function (row, value, options) {
   const canvas = row.getElementsByTagName("canvas")[0];
   if (!canvas) return;
@@ -1030,7 +1119,19 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
       ui.camSmooth.settled = true;
       ui.camSmooth.lastTs = 0;
     } else if (smoothOn) {
-      ui.camSmooth.settled = false;
+      const c = ui.camSmooth.cam;
+      const ddx = origin[0] - c[0];
+      const ddy = origin[1] - c[1];
+      // Sub-pixel / tiny beats: snap — keeps motion feature for real walks
+      // without a perpetual 60fps redraw loop.
+      if (ddx * ddx + ddy * ddy < 0.36) {
+        c[0] = origin[0];
+        c[1] = origin[1];
+        ui.camSmooth.settled = true;
+        ui.camSmooth.lastTs = 0;
+      } else {
+        ui.camSmooth.settled = false;
+      }
     } else {
       ui.camSmooth.cam = [origin[0], origin[1]];
       ui.camSmooth.settled = true;
@@ -1038,40 +1139,16 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
   }
 
   // Advance camera chase (also driven by rAF kicks).
-  if (
-    ui.camSmooth.enabled &&
-    ui.camSmooth.cam &&
-    ui.camSmooth.target &&
-    !ui.camSmooth.settled
-  ) {
-    const now = performance.now();
-    const dt = ui.camSmooth.lastTs
-      ? Math.min(48, Math.max(0, now - ui.camSmooth.lastTs))
-      : 16;
-    ui.camSmooth.lastTs = now;
-    const tau = Math.max(40, ui.camSmooth.tau || 280);
-    const a = 1 - Math.exp(-dt / tau);
-    const cam = ui.camSmooth.cam;
-    const tgt = ui.camSmooth.target;
-    cam[0] += (tgt[0] - cam[0]) * a;
-    cam[1] += (tgt[1] - cam[1]) * a;
-    const lag2 =
-      (tgt[0] - cam[0]) * (tgt[0] - cam[0]) +
-      (tgt[1] - cam[1]) * (tgt[1] - cam[1]);
-    if (lag2 < 0.0025) {
-      cam[0] = tgt[0];
-      cam[1] = tgt[1];
-      ui.camSmooth.settled = true;
-      ui.camSmooth.lastTs = 0;
-    }
-  }
+  bwiAdvanceMinimapCamera(ui);
 
   const tooltip = row.getElementsByClassName("minimapTooltip")[0];
   const toast = row.getElementsByClassName("minimapToast")[0];
   const legendEl = row.getElementsByClassName("minimapLegend")[0];
   const syncToggleBtn = (el, on) => {
     if (!el) return;
-    el.setAttribute("aria-pressed", on ? "true" : "false");
+    const pressed = on ? "true" : "false";
+    if (el.getAttribute("aria-pressed") === pressed) return;
+    el.setAttribute("aria-pressed", pressed);
     el.style.background = on ? "rgba(14,116,144,0.85)" : "transparent";
     el.style.color = on ? "#f8fafc" : "#cbd5e1";
     el.style.boxShadow = on ? "inset 0 0 0 1px rgba(56,189,248,0.7)" : "none";
@@ -1086,10 +1163,11 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
     const step = () => {
       row._minimapRaf = null;
       const state = row._minimapState;
-      if (!state) return;
-      self.renderMinimap(row, state.value, state.options);
-      const sm = row._minimapUi && row._minimapUi.camSmooth;
-      if (sm && sm.enabled && !sm.settled) {
+      const mui = row._minimapUi;
+      if (!state || !mui) return;
+      const moving = bwiAdvanceMinimapCamera(mui);
+      self._paintMinimapCanvas(row, state.value, state.options || {});
+      if (moving || (mui.camSmooth && mui.camSmooth.enabled && !mui.camSmooth.settled)) {
         row._minimapRaf = requestAnimationFrame(step);
       }
     };
@@ -1361,6 +1439,70 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
   syncToggleBtn(row.getElementsByClassName("minimapLayerRingsBtn")[0], ui.layers.rings);
   syncToggleBtn(row.getElementsByClassName("minimapLayerTrailBtn")[0], ui.layers.trail);
   syncToggleBtn(row.getElementsByClassName("minimapLegendBtn")[0], ui.showLegend);
+  this._paintMinimapCanvas(row, value, options, {
+    canvas,
+    logicalW,
+    logicalH,
+    ui,
+    legendEl,
+  });
+  const styles = (options && options.styles) || {};
+  const lines = (value && value.lines) || [];
+  const markers = (value && value.markers) || [];
+  const rings = (value && value.rings) || [];
+  const trail = (value && value.trail) || [];
+  if (legendEl) {
+    if (ui.showLegend) {
+      const used = new Set();
+      for (let i = 0; i < lines.length; i++) used.add(lines[i][4]);
+      for (let i = 0; i < markers.length; i++) used.add(markers[i][2]);
+      for (let i = 0; i < rings.length; i++) used.add(rings[i][3]);
+      if (trail.length) used.add("trail");
+      let htmlLegend = "";
+      for (const key of used) {
+        if (!key) continue;
+        const style = styles[key] || {};
+        const color = style.fill || style.stroke || "#aaa";
+        htmlLegend +=
+          '<div class="flex items-center gap-1"><span style="display:inline-block;width:8px;height:8px;background:' +
+          color +
+          '"></span>' +
+          key +
+          "</div>";
+      }
+      const nextLegend = htmlLegend || "<div>no styles</div>";
+      if (ui._legendHtml !== nextLegend) {
+        legendEl.innerHTML = nextLegend;
+        ui._legendHtml = nextLegend;
+      }
+      legendEl.classList.remove("hidden");
+    } else {
+      legendEl.classList.add("hidden");
+    }
+  }
+  if (ui.camSmooth && ui.camSmooth.enabled && !ui.camSmooth.settled) {
+    kickSmooth();
+  }
+};
+/**
+ * Updates bot data
+ */
+BotUi.prototype._paintMinimapCanvas = function (row, value, options, bound) {
+  options = options || {};
+  const ui = (bound && bound.ui) || row._minimapUi;
+  const canvas = (bound && bound.canvas) || row.getElementsByTagName("canvas")[0];
+  if (!ui || !canvas) return;
+  const logicalW =
+    (bound && bound.logicalW) ||
+    (value && value.width) ||
+    options.width ||
+    200;
+  const logicalH =
+    (bound && bound.logicalH) ||
+    (value && value.height) ||
+    options.height ||
+    150;
+
   const cssW = Math.max(1, canvas.clientWidth || row.clientWidth || logicalW);
   const cssH = Math.max(
     1,
@@ -1376,10 +1518,7 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, bufW, bufH);
-  ctx.fillStyle = "#0b1220";
-  ctx.fillRect(0, 0, bufW, bufH);
   const zoom = ui.zoom || 1;
-  // Uniform scale so circles stay circular even if CSS aspect drifts.
   const uniform = Math.min(bufW / logicalW, bufH / logicalH) * zoom;
   ctx.setTransform(
     uniform,
@@ -1389,7 +1528,6 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
     bufW / 2 - (logicalW / 2) * uniform,
     bufH / 2 - (logicalH / 2) * uniform
   );
-  // Slide latest geometry toward eased camera (payload is projected at value.origin).
   const sm = ui.camSmooth;
   if (
     sm &&
@@ -1411,6 +1549,180 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
   const markers = value.markers || [];
   const rings = value.rings || [];
   const trail = value.trail || [];
+
+  const scFog =
+    value.scale != null
+      ? value.scale
+      : options.scale != null
+        ? options.scale
+        : 1 / 3;
+  let halfW;
+  let halfH;
+  if (Array.isArray(value.vision) && value.vision.length >= 2) {
+    halfW = Number(value.vision[0]) * scFog;
+    halfH = Number(value.vision[1]) * scFog;
+  } else {
+    halfW = logicalW / 2 / 1.12;
+    halfH = logicalH / 2 / 1.12;
+  }
+  const showFog = options.showFog !== false && halfW > 0 && halfH > 0;
+  const fogKey = showFog
+    ? logicalW +
+      "x" +
+      logicalH +
+      ":" +
+      halfW +
+      ":" +
+      halfH +
+      ":" +
+      Math.round(zoom * 100)
+    : "nofog";
+
+  // Walls + fog are payload-static; blit while the camera eases.
+  // (Do not key on `styles` identity — structure options are stable, but
+  // defensive copies would otherwise rebuild every beat.)
+  const staticOk =
+    ui._staticLayer &&
+    ui._staticLayer.lines === lines &&
+    ui._staticLayer.zoom === zoom &&
+    ui._staticLayer.lw === logicalW &&
+    ui._staticLayer.lh === logicalH &&
+    ui._staticLayer.showLines === !!ui.layers.lines &&
+    ui._staticLayer.fogKey === fogKey;
+
+  if (!staticOk) {
+    const off =
+      (ui._staticLayer && ui._staticLayer.canvas) ||
+      document.createElement("canvas");
+    const ow = Math.max(1, Math.ceil(logicalW));
+    const oh = Math.max(1, Math.ceil(logicalH));
+    if (off.width !== ow || off.height !== oh) {
+      off.width = ow;
+      off.height = oh;
+    }
+    const sctx = off.getContext("2d");
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, ow, oh);
+    sctx.fillStyle = "#0b1220";
+    sctx.fillRect(0, 0, ow, oh);
+
+    if (ui.layers.lines && lines.length) {
+      const byStyle = new Map();
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const key = line[4] || "wall";
+        let bucket = byStyle.get(key);
+        if (!bucket) {
+          bucket = [];
+          byStyle.set(key, bucket);
+        }
+        bucket.push(line);
+      }
+      for (const [styleKey, bucket] of byStyle) {
+        const style = styles[styleKey] || {};
+        sctx.beginPath();
+        sctx.strokeStyle = style.stroke || "rgba(203,213,225,0.9)";
+        sctx.lineWidth = (style.lineWidth || 1.25) / zoom;
+        sctx.lineCap = "square";
+        for (let i = 0; i < bucket.length; i++) {
+          const line = bucket[i];
+          sctx.moveTo(line[0], line[1]);
+          sctx.lineTo(line[2], line[3]);
+        }
+        sctx.stroke();
+      }
+    }
+
+    if (showFog) {
+      if (!ui._fogCache || ui._fogCache.key !== fogKey) {
+        const fog = document.createElement("canvas");
+        fog.width = ow;
+        fog.height = oh;
+        const fctx = fog.getContext("2d");
+        const fogCx = logicalW / 2;
+        const fogCy = logicalH / 2;
+        const clearW = halfW * 0.88;
+        const clearH = halfH * 0.88;
+        const clearL = fogCx - clearW;
+        const clearR = fogCx + clearW;
+        const clearT = fogCy - clearH;
+        const clearB = fogCy + clearH;
+        const visL = fogCx - halfW;
+        const visR = fogCx + halfW;
+        const visT = fogCy - halfH;
+        const visB = fogCy + halfH;
+        const x0 = Math.min(0, visL) - 48;
+        const y0 = Math.min(0, visT) - 48;
+        const x1 = Math.max(logicalW, visR) + 48;
+        const y1 = Math.max(logicalH, visB) + 48;
+        const fogRgb = "11,18,32";
+        const fillBand = (gradient, x, y, w, h) => {
+          if (w <= 0 || h <= 0) return;
+          fctx.fillStyle = gradient;
+          fctx.fillRect(x, y, w, h);
+        };
+        if (clearL > x0) {
+          const g = fctx.createLinearGradient(x0, 0, clearL, 0);
+          g.addColorStop(0, "rgba(" + fogRgb + ",1)");
+          const tVis = Math.max(
+            0.02,
+            Math.min(0.98, (visL - x0) / (clearL - x0))
+          );
+          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.75)");
+          g.addColorStop(1, "rgba(" + fogRgb + ",0)");
+          fillBand(g, x0, y0, clearL - x0, y1 - y0);
+        }
+        if (x1 > clearR) {
+          const g = fctx.createLinearGradient(clearR, 0, x1, 0);
+          g.addColorStop(0, "rgba(" + fogRgb + ",0)");
+          const tVis = Math.max(
+            0.02,
+            Math.min(0.98, (visR - clearR) / (x1 - clearR))
+          );
+          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.75)");
+          g.addColorStop(1, "rgba(" + fogRgb + ",1)");
+          fillBand(g, clearR, y0, x1 - clearR, y1 - y0);
+        }
+        if (clearT > y0) {
+          const g = fctx.createLinearGradient(0, y0, 0, clearT);
+          g.addColorStop(0, "rgba(" + fogRgb + ",1)");
+          const tVis = Math.max(
+            0.02,
+            Math.min(0.98, (visT - y0) / (clearT - y0))
+          );
+          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.65)");
+          g.addColorStop(1, "rgba(" + fogRgb + ",0)");
+          fillBand(g, x0, y0, x1 - x0, clearT - y0);
+        }
+        if (y1 > clearB) {
+          const g = fctx.createLinearGradient(0, clearB, 0, y1);
+          g.addColorStop(0, "rgba(" + fogRgb + ",0)");
+          const tVis = Math.max(
+            0.02,
+            Math.min(0.98, (visB - clearB) / (y1 - clearB))
+          );
+          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.65)");
+          g.addColorStop(1, "rgba(" + fogRgb + ",1)");
+          fillBand(g, x0, clearB, x1 - x0, y1 - clearB);
+        }
+        ui._fogCache = { key: fogKey, canvas: fog };
+      }
+      sctx.drawImage(ui._fogCache.canvas, 0, 0);
+    }
+
+    ui._staticLayer = {
+      canvas: off,
+      lines,
+      zoom,
+      lw: logicalW,
+      lh: logicalH,
+      showLines: !!ui.layers.lines,
+      fogKey,
+    };
+  }
+
+  ctx.drawImage(ui._staticLayer.canvas, 0, 0);
+
   if (ui.layers.trail && trail.length > 0) {
     const trailStyle = styles.trail || {
       stroke: "rgba(125,211,252,0.55)",
@@ -1418,7 +1730,6 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
     };
     const color = trailStyle.stroke || "rgba(125,211,252,0.55)";
     const baseW = (trailStyle.lineWidth || 1) / zoom;
-    // Single path — densifying every segment each frame was expensive.
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.strokeStyle = color;
@@ -1439,33 +1750,6 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
     ctx.globalAlpha = 1;
   }
 
-  if (ui.layers.lines) {
-    // Batch by style — hundreds of walls per vision window.
-    const byStyle = new Map();
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const key = line[4] || "wall";
-      let bucket = byStyle.get(key);
-      if (!bucket) {
-        bucket = [];
-        byStyle.set(key, bucket);
-      }
-      bucket.push(line);
-    }
-    for (const [styleKey, bucket] of byStyle) {
-      const style = styles[styleKey] || {};
-      ctx.beginPath();
-      ctx.strokeStyle = style.stroke || "rgba(203,213,225,0.9)";
-      ctx.lineWidth = (style.lineWidth || 1.25) / zoom;
-      ctx.lineCap = "square";
-      for (let i = 0; i < bucket.length; i++) {
-        const line = bucket[i];
-        ctx.moveTo(line[0], line[1]);
-        ctx.lineTo(line[2], line[3]);
-      }
-      ctx.stroke();
-    }
-  }
   if (ui.layers.rings) {
     for (let i = 0; i < rings.length; i++) {
       const ring = rings[i];
@@ -1486,8 +1770,6 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
       const marker = markers[i];
       const styleKey = marker[2];
       const label = marker[3];
-      // Draw at payload pixel coords; camera translate keeps the whole scene
-      // (walls + markers) sliding together. Extra marker lerps fought the cam.
       const x = marker[0];
       const y = marker[1];
       const hp = marker[4];
@@ -1496,25 +1778,24 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
       const fill = style.fill || style.stroke || "#ffffff";
       const stroke = style.stroke || fill;
       const hovered = ui.hover && ui.hover.index === i;
-      const s = hovered ? 1.75 : 1.25;
+      const sc = hovered ? 1.75 : 1.25;
       if (shape === "dot") {
         ctx.fillStyle = fill;
         ctx.beginPath();
-        ctx.arc(x + 0.5, y + 0.5, 1.6 * s, 0, Math.PI * 2);
+        ctx.arc(x + 0.5, y + 0.5, 1.6 * sc, 0, Math.PI * 2);
         ctx.fill();
       } else if (shape === "ring") {
         ctx.strokeStyle = stroke;
         ctx.lineWidth = (style.lineWidth || 1.25) / zoom;
         ctx.beginPath();
-        ctx.arc(x + 0.5, y + 0.5, 4 * s, 0, Math.PI * 2);
+        ctx.arc(x + 0.5, y + 0.5, 4 * sc, 0, Math.PI * 2);
         ctx.stroke();
       } else {
-        // crosshair
         ctx.fillStyle = fill;
-        ctx.fillRect(x - 1.5 * s, y, 4 * s, s);
-        ctx.fillRect(x, y - 1.5 * s, s, 4 * s);
+        ctx.fillRect(x - 1.5 * sc, y, 4 * sc, sc);
+        ctx.fillRect(x, y - 1.5 * sc, sc, 4 * sc);
         ctx.beginPath();
-        ctx.arc(x + s * 0.5, y + s * 0.5, 1.1 * s, 0, Math.PI * 2);
+        ctx.arc(x + sc * 0.5, y + sc * 0.5, 1.1 * sc, 0, Math.PI * 2);
         ctx.fill();
       }
       if (typeof hp === "number") {
@@ -1542,135 +1823,8 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
       }
     }
   }
-
-  // Soft fog past / near vision — padding reads as fog of war.
-  // Rasterize once per size/vision/zoom; blit each frame (gradients are costly).
-  if (options.showFog !== false) {
-    const scFog =
-      value.scale != null
-        ? value.scale
-        : options.scale != null
-          ? options.scale
-          : 1 / 3;
-    let halfW;
-    let halfH;
-    if (Array.isArray(value.vision) && value.vision.length >= 2) {
-      halfW = Number(value.vision[0]) * scFog;
-      halfH = Number(value.vision[1]) * scFog;
-    } else {
-      halfW = logicalW / 2 / 1.12;
-      halfH = logicalH / 2 / 1.12;
-    }
-    if (halfW > 0 && halfH > 0) {
-      const fogKey =
-        logicalW +
-        "x" +
-        logicalH +
-        ":" +
-        halfW +
-        ":" +
-        halfH +
-        ":" +
-        Math.round(zoom * 100);
-      if (!ui._fogCache || ui._fogCache.key !== fogKey) {
-        const off = document.createElement("canvas");
-        off.width = Math.max(1, Math.ceil(logicalW));
-        off.height = Math.max(1, Math.ceil(logicalH));
-        const fctx = off.getContext("2d");
-        const fogCx = logicalW / 2;
-        const fogCy = logicalH / 2;
-        const clearW = halfW * 0.88;
-        const clearH = halfH * 0.88;
-        const clearL = fogCx - clearW;
-        const clearR = fogCx + clearW;
-        const clearT = fogCy - clearH;
-        const clearB = fogCy + clearH;
-        const visL = fogCx - halfW;
-        const visR = fogCx + halfW;
-        const visT = fogCy - halfH;
-        const visB = fogCy + halfH;
-        const x0 = Math.min(0, visL) - 48;
-        const y0 = Math.min(0, visT) - 48;
-        const x1 = Math.max(logicalW, visR) + 48;
-        const y1 = Math.max(logicalH, visB) + 48;
-        const fogRgb = "11,18,32";
-
-        const fillBand = (gradient, x, y, w, h) => {
-          if (w <= 0 || h <= 0) return;
-          fctx.fillStyle = gradient;
-          fctx.fillRect(x, y, w, h);
-        };
-
-        if (clearL > x0) {
-          const g = fctx.createLinearGradient(x0, 0, clearL, 0);
-          g.addColorStop(0, "rgba(" + fogRgb + ",1)");
-          const tVis = Math.max(0.02, Math.min(0.98, (visL - x0) / (clearL - x0)));
-          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.75)");
-          g.addColorStop(1, "rgba(" + fogRgb + ",0)");
-          fillBand(g, x0, y0, clearL - x0, y1 - y0);
-        }
-        if (x1 > clearR) {
-          const g = fctx.createLinearGradient(clearR, 0, x1, 0);
-          g.addColorStop(0, "rgba(" + fogRgb + ",0)");
-          const tVis = Math.max(0.02, Math.min(0.98, (visR - clearR) / (x1 - clearR)));
-          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.75)");
-          g.addColorStop(1, "rgba(" + fogRgb + ",1)");
-          fillBand(g, clearR, y0, x1 - clearR, y1 - y0);
-        }
-        if (clearT > y0) {
-          const g = fctx.createLinearGradient(0, y0, 0, clearT);
-          g.addColorStop(0, "rgba(" + fogRgb + ",1)");
-          const tVis = Math.max(0.02, Math.min(0.98, (visT - y0) / (clearT - y0)));
-          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.65)");
-          g.addColorStop(1, "rgba(" + fogRgb + ",0)");
-          fillBand(g, x0, y0, x1 - x0, clearT - y0);
-        }
-        if (y1 > clearB) {
-          const g = fctx.createLinearGradient(0, clearB, 0, y1);
-          g.addColorStop(0, "rgba(" + fogRgb + ",0)");
-          const tVis = Math.max(0.02, Math.min(0.98, (visB - clearB) / (y1 - clearB)));
-          g.addColorStop(tVis, "rgba(" + fogRgb + ",0.65)");
-          g.addColorStop(1, "rgba(" + fogRgb + ",1)");
-          fillBand(g, x0, clearB, x1 - x0, y1 - clearB);
-        }
-        ui._fogCache = { key: fogKey, canvas: off };
-      }
-      ctx.drawImage(ui._fogCache.canvas, 0, 0);
-    }
-  }
-
-  if (legendEl) {
-    if (ui.showLegend) {
-      const used = new Set();
-      for (let i = 0; i < lines.length; i++) used.add(lines[i][4]);
-      for (let i = 0; i < markers.length; i++) used.add(markers[i][2]);
-      for (let i = 0; i < rings.length; i++) used.add(rings[i][3]);
-      if (trail.length) used.add("trail");
-      let htmlLegend = "";
-      for (const key of used) {
-        if (!key) continue;
-        const style = styles[key] || {};
-        const color = style.fill || style.stroke || "#aaa";
-        htmlLegend +=
-          '<div class="flex items-center gap-1"><span style="display:inline-block;width:8px;height:8px;background:' +
-          color +
-          '"></span>' +
-          key +
-          "</div>";
-      }
-      legendEl.innerHTML = htmlLegend || "<div>no styles</div>";
-      legendEl.classList.remove("hidden");
-    } else {
-      legendEl.classList.add("hidden");
-    }
-  }
-  if (ui.camSmooth && ui.camSmooth.enabled && !ui.camSmooth.settled) {
-    kickSmooth();
-  }
 };
-/**
- * Updates bot data
- */
+
 BotUi.prototype.update = function (data) {
   this.data = data;
   this.render();
