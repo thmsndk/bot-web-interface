@@ -67,3 +67,5 @@ typings/
 .env
 
 
+
+tmp-*.png

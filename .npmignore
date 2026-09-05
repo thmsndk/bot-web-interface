@@ -3,3 +3,4 @@
 tailwind.config.js
 test-names.js
 test.js
+tmp-*.png
