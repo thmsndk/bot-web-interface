@@ -73,6 +73,8 @@ class Publisher {
     this.lastSent = new Map();
     this._publishScheduled = false;
     this.updateRate = updateRate;
+    /** @type {object | null} Adventure Land icon atlas (imagesets/positions/items). */
+    this.atlas = null;
 
     if (updateRate > 0) {
       this._interval = setInterval(() => {
@@ -166,7 +168,7 @@ class Publisher {
       }
       this.lastSent.set(id, sent);
     }
-    client.sendSetup(this.title, structure, data);
+    client.sendSetup(this.title, structure, data, this.atlas);
   }
 
   clientLeft(client) {
@@ -205,6 +207,20 @@ class Publisher {
 
   setDefaultStructure(structure) {
     this.defaultStructure = structure;
+  }
+
+  /**
+   * Register Adventure Land sheet atlas for icon/item widgets.
+   * Sent on client join and broadcast to connected clients.
+   * @param {object | null} atlas
+   */
+  setAtlas(atlas) {
+    this.atlas = atlas && typeof atlas === "object" ? atlas : null;
+    for (let i = 0; i < this.clients.length; i++) {
+      if (this.clients[i] && typeof this.clients[i].sendAtlas === "function") {
+        this.clients[i].sendAtlas(this.atlas);
+      }
+    }
   }
 
   pushData(id, name, value) {

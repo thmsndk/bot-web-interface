@@ -69,7 +69,8 @@ function formatBeatAge(sampledAt, now, opts) {
 /**
  * Build a BWI timerList row from a sampled remaining duration.
  * `endsAt` lets the browser tick between beats without waiting for the next publish.
- * @param {{ name: string, ms: number, ims: number, rightText?: string, sampledAt?: number, now?: number }} opts
+ * Optional `skin` / `icon` shows an atlas crop on the timer bar (buffs/debuffs).
+ * @param {{ name: string, ms: number, ims: number, rightText?: string, sampledAt?: number, now?: number, skin?: string, icon?: object, buff?: boolean, debuff?: boolean }} opts
  */
 function timerPresentation(opts) {
   const now =
@@ -78,7 +79,7 @@ function timerPresentation(opts) {
       : Date.now();
   const left = remainingMs(opts.ms, opts.sampledAt, now);
   const ims = Number(opts.ims) > 0 ? Number(opts.ims) : 1;
-  return {
+  const row = {
     leftText: opts.name,
     middleText: msToTime(left),
     rightText: opts.rightText != null ? opts.rightText : "",
@@ -87,6 +88,11 @@ function timerPresentation(opts) {
     ims,
     endsAt: now + left,
   };
+  if (opts.skin) row.skin = opts.skin;
+  if (opts.icon) row.icon = opts.icon;
+  if (opts.buff) row.buff = true;
+  if (opts.debuff) row.debuff = true;
+  return row;
 }
 
 module.exports = {

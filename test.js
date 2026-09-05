@@ -16,6 +16,7 @@ const {
   createWallProjector,
 } = require("./minimapGeometry");
 const { timerPresentation } = require("./countdown");
+const sampleAtlas = require("./fixtures/atlas-sample.json");
 
 const DEMO_MMAP = resolveMinimapView(DEFAULT_VISION);
 const DEMO_BEAT_MS = 500; // match caracAL STAT_BEAT_INTERVAL
@@ -115,12 +116,39 @@ function quick_bar_val(num, denom, humanize) {
   return [(100 * num) / safeDenom, `${modif(num)} / ${modif(safeDenom)}`];
 }
 
+function demoPotSummary(items, kind) {
+  let best = null;
+  let bestScore = -1;
+  let total = 0;
+  const list = items || [];
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i];
+    if (!it || !it.name) continue;
+    const name = String(it.name);
+    const match =
+      kind === "hp" ? name.startsWith("hpot") : name.startsWith("mpot");
+    if (!match) continue;
+    const q = typeof it.q === "number" ? it.q : 1;
+    total += q;
+    if (q > bestScore) {
+      bestScore = q;
+      best = { name: it.name };
+    }
+  }
+  return {
+    name: (best && best.name) || (kind === "hp" ? "hpot0" : "mpot0"),
+    q: total,
+    showQuantity: true,
+  };
+}
+
 let BWI = new BotWebInterface({
   title: "TEST: BWI (caracAL + showcase)",
   // Watchdog only — live publishes come from requestPublish() each beat.
   updateRate: Math.max(DEMO_BEAT_MS * 10, 5000),
   port: 2080,
 });
+BWI.publisher.setAtlas(sampleAtlas);
 
 // Match caracAL's top-level panel slots for character columns.
 BWI.publisher.setDefaultStructure([
@@ -150,13 +178,19 @@ const characterSchema = [
     name: "health",
     type: "labelProgressBar",
     label: "Health",
-    options: { color: "red" },
+    options: {
+      color: "red",
+      item: { key: "hpPot", size: 28, raise: 6 },
+    },
   },
   {
     name: "mana",
     type: "labelProgressBar",
     label: "Mana",
-    options: { color: "blue" },
+    options: {
+      color: "blue",
+      item: { key: "mpPot", size: 28, raise: 6 },
+    },
   },
   {
     name: "xp",
@@ -169,15 +203,58 @@ const characterSchema = [
     name: "inv",
     type: "labelProgressBar",
     label: "Inventory",
-    options: { color: "brown" },
+    options: {
+      color: "brown",
+      modal: {
+        key: "bag",
+        kind: "itemGrid",
+        cols: 7,
+        slots: 42,
+        modalSize: 56,
+      },
+    },
+  },
+  {
+    name: "gearBar",
+    type: "labelProgressBar",
+    label: "Gear",
+    options: {
+      color: "brown",
+      modal: {
+        key: "gear",
+        kind: "itemGrid",
+        cols: 4,
+        slots: 16,
+        modalSize: 60,
+      },
+    },
+  },
+  {
+    name: "tradesBar",
+    type: "labelProgressBar",
+    label: "Trades",
+    options: {
+      color: "brown",
+      modal: {
+        key: "trades",
+        kind: "itemStrip",
+        wrap: true,
+        modalSize: 56,
+      },
+    },
   },
   {
     name: "bank",
     type: "labelProgressBar",
-    label: "bank",
+    label: "Bank",
     options: { color: "brown" },
   },
   { name: "gold", type: "leftMiddleRightText" },
+  {
+    name: "favorites",
+    type: "itemStrip",
+    options: { size: 36 },
+  },
   { name: "timers", type: "timerList" },
 ];
 
@@ -252,6 +329,7 @@ function create() {
         name: "loot",
         type: "table",
         headers: ["When", "Item", "#"],
+        options: { itemSize: 32 },
       },
     ],
     "loot"
@@ -286,6 +364,67 @@ const showcaseState = {
   multiB: [25, 40, 50, 30],
   clicks: 0,
   nestedPct: 40,
+  featured: {
+    name: "harbringer",
+    level: 9,
+    p: "shiny",
+    q: 1,
+  },
+  favorites: [
+    { name: "harbringer", level: 9, p: "shiny" },
+    { name: "hpamulet", level: 4 },
+    { name: "hpot0", q: 240 },
+    { name: "mpot0", q: 120 },
+  ],
+  inventory: [
+    { name: "harbringer", level: 8 },
+    { name: "scroll1", q: 42 },
+    { name: "cscroll0", q: 12 },
+    { name: "offeringp", q: 3 },
+    { name: "hpot0", q: 999 },
+    { name: "mpot0", q: 400 },
+    { name: "hpamulet", level: 3, p: "lucky" },
+    null,
+    null,
+    { name: "cscroll1", q: 2 },
+  ],
+  gear: (function () {
+    // AL paperdoll 4×4: earring1 helmet earring2 amulet / mh chest oh cape / …
+    const cells = Array(16).fill(null);
+    cells[1] = { name: "helmet", level: 7, slot: "helmet" };
+    cells[4] = { name: "harbringer", level: 9, p: "shiny", slot: "mainhand" };
+    cells[5] = { name: "coat", level: 6, slot: "chest" };
+    cells[3] = { name: "hpamulet", level: 4, slot: "amulet" };
+    cells[9] = { name: "pants", level: 6, slot: "pants" };
+    cells[13] = { name: "shoes", level: 7, slot: "shoes" };
+    return cells;
+  })(),
+  trades: [
+    {
+      slot: "trade1",
+      side: "sell",
+      name: "harbringer",
+      level: 8,
+      p: "shiny",
+      price: 125000000,
+    },
+    {
+      slot: "trade2",
+      side: "buy",
+      name: "offeringp",
+      q: 1,
+      price: 4500000,
+      showQuantity: true,
+    },
+    {
+      slot: "trade3",
+      side: "sell",
+      name: "scroll1",
+      q: 20,
+      price: 12000,
+      showQuantity: true,
+    },
+  ],
 };
 
 function wireShowcaseSources() {
@@ -303,6 +442,9 @@ function wireShowcaseSources() {
           size: "lg",
         },
       },
+      featured: showcaseState.featured,
+      favorites: showcaseState.favorites,
+      inventory: showcaseState.inventory,
       plainBar: showcaseState.plain,
       rating: [
         showcaseState.rating * 100,
@@ -366,6 +508,21 @@ function createShowcase() {
       name: "sizes",
       type: "leftMiddleRightText",
       options: { size: "lg" },
+    },
+    {
+      name: "featured",
+      type: "item",
+      options: { size: 48 },
+    },
+    {
+      name: "favorites",
+      type: "itemStrip",
+      options: { size: 40 },
+    },
+    {
+      name: "inventory",
+      type: "itemGrid",
+      options: { size: 32, cols: 5, slots: 10 },
     },
     {
       name: "plainBar",
@@ -524,6 +681,8 @@ setInterval(function () {
       if (!timers.hunt && Math.random() < 0.15) {
         timers.hunt = {
           name: "Irradiated Goo",
+          skin: "condition_bad",
+          debuff: true,
           ims: 30 * 60 * 1000,
           ms: 30 * 60 * 1000,
           sampledAt: now,
@@ -532,6 +691,8 @@ setInterval(function () {
       if (!timers.burned && Math.random() < 0.2) {
         timers.burned = {
           name: "Burned",
+          skin: "fireblade",
+          debuff: true,
           ims: 10000,
           ms: 10000,
           sampledAt: now,
@@ -540,14 +701,28 @@ setInterval(function () {
       if (!timers.cursed && Math.random() < 0.15) {
         timers.cursed = {
           name: "Cursed",
+          skin: "condition_bad",
+          debuff: true,
           ims: 8000,
           ms: 8000,
           sampledAt: now,
         };
       }
+      if (!timers.mluck && Math.random() < 0.12) {
+        timers.mluck = {
+          name: "Good Luck",
+          skin: "buff_luck",
+          buff: true,
+          ims: 60 * 60 * 1000,
+          ms: 60 * 60 * 1000,
+          sampledAt: now,
+        };
+      }
       if (!timers.stack && Math.random() < 0.15) {
         timers.stack = {
-          name: "Stack",
+          name: "Hard Shell",
+          skin: "skill_hardshell",
+          buff: true,
           ims: 12000,
           ms: 12000,
           sampledAt: now,
@@ -561,6 +736,9 @@ setInterval(function () {
         name: t.name,
         ms: t.ms,
         ims: t.ims,
+        skin: t.skin,
+        buff: t.buff,
+        debuff: t.debuff,
         sampledAt: t.sampledAt,
         now,
       });
@@ -696,6 +874,8 @@ setInterval(function () {
         minimap,
         health: quick_bar_val(hp, state.maxHp, true),
         mana: quick_bar_val(mp, state.maxMp, true),
+        hpPot: demoPotSummary(showcaseState.inventory, "hp"),
+        mpPot: demoPotSummary(showcaseState.inventory, "mp"),
         xp: quick_bar_val(xp, state.maxXp, true),
         xpText: {
           left: `XP/h ${humanize_int(state.xpPerHour, 1)}`,
@@ -707,12 +887,25 @@ setInterval(function () {
               : { levelUpAt: 0, etaFallback: "N/A TTLU" },
         },
         inv: quick_bar_val(invUsed, state.isize),
+        gearBar: quick_bar_val(
+          showcaseState.gear.filter(function (x) {
+            return x && x.name;
+          }).length,
+          16
+        ),
+        tradesBar: quick_bar_val(showcaseState.trades.length, 16),
         bank: quick_bar_val(bankUsed, state.bankSlots),
         gold: {
           left: `Gold: ${humanize_int(state.gold, 1)}`,
           middle: "",
           right: `${humanize_int(state.goldPerHour, 1)} G/h`,
         },
+        favorites: showcaseState.favorites,
+        gear: showcaseState.gear,
+        bag: showcaseState.inventory.concat(
+          Array(Math.max(0, 42 - showcaseState.inventory.length)).fill(null)
+        ),
+        trades: showcaseState.trades,
         timers: timerRows,
       };
     });
@@ -743,9 +936,11 @@ setInterval(function () {
     });
 
     if (Math.random() < 0.08) {
+      const lootNames = ["hpot0", "mpot0", "scroll1", "offeringp", "cscroll0"];
+      const lootName = lootNames[Math.floor(Math.random() * lootNames.length)];
       state.loot.splice(0, 0, [
         new Date(),
-        generateName(),
+        { name: lootName, q: 1 + Math.floor(Math.random() * 5) },
         1 + Math.floor(Math.random() * 5),
       ]);
       state.loot = state.loot.slice(0, 12);
@@ -753,11 +948,29 @@ setInterval(function () {
     lootBotUI.setDataSource(function () {
       return {
         lootHeader: {
-          left: `📦 ${state.loot.length}`,
+          left: `Loot ${state.loot.length}`,
           middle: "",
-          right: `${state.loot.reduce((a, x) => a + x[2], 0)} items`,
+          right: `${state.loot.reduce((a, x) => a + x[2], 0)} pcs`,
         },
-        loot: state.loot.map((x) => [timeAgo(x[0]), x[1], x[2]]),
+        loot: state.loot.map(function (x) {
+          const item = x[1] || {};
+          const q = x[2];
+          const meta =
+            (sampleAtlas.items && sampleAtlas.items[item.name]) || {};
+          const title =
+            (item.p &&
+              sampleAtlas.titles &&
+              sampleAtlas.titles[item.p] &&
+              sampleAtlas.titles[item.p].title) ||
+            "";
+          const base = meta.name || item.name || "?";
+          const label = title ? title + " " + base : base;
+          return [
+            timeAgo(x[0]),
+            label,
+            Object.assign({}, item, { q: q, showQuantity: true }),
+          ];
+        }),
       };
     });
   }

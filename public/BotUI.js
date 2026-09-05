@@ -137,6 +137,669 @@ function paintEta(entry, now) {
   if (entry.el.textContent !== text) entry.el.textContent = text;
 }
 
+function bwiNormalizeItem(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "string") return { name: raw };
+  if (typeof raw !== "object") return null;
+  if (!raw.name && !raw.skin) return null;
+  return raw;
+}
+
+/**
+ * Paint an Adventure Land iteminstance into a .bwi-item host element.
+ * @param {HTMLElement} host
+ * @param {object | null} inst
+ * @param {{ size?: number }} [opts]
+ */
+function bwiPaintItemEl(host, inst, opts) {
+  opts = opts || {};
+  const size = opts.size || (inst && inst.size) || 40;
+  if (opts.fillCell) {
+    host.style.width = "100%";
+    host.style.height = "auto";
+    host.style.aspectRatio = "1";
+  } else {
+    host.style.width = size + "px";
+    host.style.height = size + "px";
+    host.style.aspectRatio = "";
+  }
+  host.classList.add("bwi-item");
+
+  const normalized = bwiNormalizeItem(inst);
+  if (!normalized) {
+    host.classList.add("is-empty");
+    host.classList.remove("is-buy", "is-sell", "is-give");
+    host.innerHTML = "";
+    host.title = "";
+    host.removeAttribute("data-item");
+    return;
+  }
+  host.classList.remove("is-empty");
+  host.setAttribute("data-item", normalized.name || normalized.skin || "");
+
+  const atlas = typeof BwiAtlas !== "undefined" ? BwiAtlas : null;
+  const crop = atlas ? atlas.cropForInstance(normalized) : null;
+  const meta = atlas ? atlas.itemMeta(normalized.name) : {};
+  let title = atlas ? atlas.displayTitle(normalized) : normalized.name || "";
+  if (normalized.slot) title = title + " (" + normalized.slot + ")";
+  if (typeof normalized.price === "number") {
+    const px =
+      atlas && atlas.abbreviateNumber
+        ? atlas.abbreviateNumber(normalized.price)
+        : String(normalized.price);
+    const side = normalized.side || "sell";
+    title = title + " · " + side + " " + px + " G";
+  }
+  host.title = title;
+
+  const showTitle =
+    normalized.showTitleBorder != null
+      ? !!normalized.showTitleBorder
+      : !!normalized.p;
+  const border =
+    atlas && atlas.titleBorderColor
+      ? atlas.titleBorderColor(normalized.p, showTitle)
+      : null;
+  host.style.borderColor = border || "rgba(71, 85, 105, 0.85)";
+
+  host.classList.remove("is-buy", "is-sell", "is-give");
+  if (normalized.side === "buy") host.classList.add("is-buy");
+  else if (normalized.side === "giveaway") host.classList.add("is-give");
+  else if (typeof normalized.price === "number" || normalized.side === "sell") {
+    host.classList.add("is-sell");
+  }
+
+  let sprite = host.getElementsByClassName("bwi-item-sprite")[0];
+  let levelEl = host.getElementsByClassName("bwi-item-level")[0];
+  let qtyEl = host.getElementsByClassName("bwi-item-qty")[0];
+  let priceEl = host.getElementsByClassName("bwi-item-price")[0];
+  if (!sprite) {
+    host.innerHTML =
+      '<div class="bwi-item-sprite"></div>' +
+      '<span class="bwi-item-badge bwi-item-level"></span>' +
+      '<span class="bwi-item-badge bwi-item-qty"></span>' +
+      '<span class="bwi-item-badge bwi-item-price"></span>';
+    sprite = host.getElementsByClassName("bwi-item-sprite")[0];
+    levelEl = host.getElementsByClassName("bwi-item-level")[0];
+    qtyEl = host.getElementsByClassName("bwi-item-qty")[0];
+    priceEl = host.getElementsByClassName("bwi-item-price")[0];
+  } else if (!priceEl) {
+    priceEl = document.createElement("span");
+    priceEl.className = "bwi-item-badge bwi-item-price";
+    host.appendChild(priceEl);
+  }
+
+  // Prefer measured cell width when filling a grid track.
+  const paintSize =
+    opts.fillCell && host.clientWidth > 0 ? host.clientWidth : size;
+
+  if (crop && sprite) {
+    const url = atlas.sheetUrl(crop.file);
+    const scale = paintSize / crop.sw;
+    sprite.style.backgroundImage = 'url("' + url + '")';
+    sprite.style.backgroundPosition = "-" + crop.sx + "px -" + crop.sy + "px";
+    sprite.style.width = crop.sw + "px";
+    sprite.style.height = crop.sh + "px";
+    sprite.style.transform = "scale(" + scale + ")";
+    sprite.style.display = "";
+  } else if (sprite) {
+    sprite.style.display = "none";
+  }
+
+  const level = typeof normalized.level === "number" ? normalized.level : 0;
+  const levelString = atlas
+    ? atlas.getLevelString(meta, level)
+    : level > 0
+      ? level
+      : undefined;
+  const showLevel =
+    normalized.showLevel != null
+      ? !!normalized.showLevel
+      : level > 0 && (!!meta.upgrade || !!meta.compound || levelString !== undefined);
+  if (levelEl) {
+    if (showLevel && levelString !== undefined) {
+      levelEl.textContent = String(levelString);
+      levelEl.style.color = atlas
+        ? atlas.levelTextColor(meta, level)
+        : "#d1d5db";
+      levelEl.style.fontSize = Math.max(9, Math.round(paintSize * 0.28)) + "px";
+      levelEl.style.display = "";
+    } else {
+      levelEl.textContent = "";
+      levelEl.style.display = "none";
+    }
+  }
+
+  const q = typeof normalized.q === "number" ? normalized.q : undefined;
+  const showQty =
+    normalized.showQuantity != null
+      ? !!normalized.showQuantity
+      : q !== undefined && q > 1;
+  if (qtyEl) {
+    if (showQty && q !== undefined && q > 0) {
+      qtyEl.textContent = atlas ? atlas.abbreviateNumber(q) : String(q);
+      qtyEl.style.fontSize = Math.max(8, Math.round(paintSize * 0.22)) + "px";
+      qtyEl.style.display = "";
+    } else {
+      qtyEl.textContent = "";
+      qtyEl.style.display = "none";
+    }
+  }
+
+  if (priceEl) {
+    if (typeof normalized.price === "number" && paintSize >= 28) {
+      const px =
+        atlas && atlas.abbreviateNumber
+          ? atlas.abbreviateNumber(normalized.price)
+          : String(normalized.price);
+      priceEl.textContent = px;
+      priceEl.style.fontSize = Math.max(7, Math.round(paintSize * 0.2)) + "px";
+      priceEl.style.display = "";
+    } else {
+      priceEl.textContent = "";
+      priceEl.style.display = "none";
+    }
+  }
+}
+
+/** CSS column/row gap in px (flex/grid). */
+function bwiContainerGapPx(el) {
+  if (!el || typeof window === "undefined" || !window.getComputedStyle) return 4;
+  const cs = window.getComputedStyle(el);
+  const gap = parseFloat(cs.columnGap || cs.gap);
+  return Number.isFinite(gap) ? gap : 4;
+}
+
+/**
+ * Square cell size so `columns` cells fill the container width.
+ * @param {HTMLElement} container
+ * @param {number} columns
+ * @param {number} fallback
+ */
+function bwiFitCellSize(container, columns, fallback) {
+  const cols = Math.max(1, columns | 0);
+  const w = container && container.clientWidth;
+  if (!(w > 0)) return fallback;
+  const gap = bwiContainerGapPx(container);
+  return Math.max(14, Math.floor((w - gap * (cols - 1)) / cols));
+}
+
+/**
+ * Keep strip/grid sized to container width across resizes.
+ * @param {HTMLElement} container
+ * @param {function(): void} paint
+ */
+function bwiWatchItemLayout(container, paint) {
+  if (!container || container._bwiLayoutWatch) return;
+  container._bwiLayoutWatch = true;
+  let lastW = container.clientWidth;
+  if (typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(function () {
+      const w = container.clientWidth;
+      if (w === lastW) return;
+      lastW = w;
+      if (typeof container._bwiRelayout === "function") container._bwiRelayout();
+    });
+    ro.observe(container);
+    container._bwiResizeObs = ro;
+  }
+  container._bwiRelayout = paint;
+}
+
+function bwiFoldStorageKey(name) {
+  return "bwi-fold:" + name;
+}
+
+function bwiFoldShouldOpen(name, options) {
+  try {
+    const stored = localStorage.getItem(bwiFoldStorageKey(name));
+    if (stored === "1") return true;
+    if (stored === "0") return false;
+  } catch (e) {
+    /* ignore */
+  }
+  return !!(options && options.defaultOpen);
+}
+
+/**
+ * Optional chrome: modal launcher icon, or collapsible fold, or bare widget.
+ * @returns {string} html
+ */
+function bwiWrapItemChrome(name, label, options, widgetHtml) {
+  return bwiWrapFold(name, label, options, widgetHtml);
+}
+
+function bwiUiGlyph(icon, size) {
+  const s = size || 22;
+  const common =
+    'xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" ' +
+    'width="' +
+    s +
+    '" height="' +
+    s +
+    '" aria-hidden="true" stroke="currentColor" stroke-width="1.75" ' +
+    'stroke-linecap="round" stroke-linejoin="round"';
+  if (icon === "bag") {
+    return (
+      "<svg " +
+      common +
+      '><path d="M6.5 8.5h11l.9 12H5.6l.9-12z"/><path d="M9 8.5V6.4A3 3 0 0 1 12 3.8 3 3 0 0 1 15 6.4v2.1"/><path d="M9.5 13h5"/></svg>'
+    );
+  }
+  if (icon === "trade") {
+    return (
+      "<svg " +
+      common +
+      '><path d="M4 8h13"/><path d="M14 4.5 17.5 8 14 11.5"/><path d="M20 16H7"/><path d="M10 19.5 6.5 16 10 12.5"/></svg>'
+    );
+  }
+  // cog — teeth + hub (distinct from a sun)
+  return (
+    "<svg " +
+    common +
+    '><path d="M12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6z"/><path d="M19.4 13.1a7.4 7.4 0 0 0 0-2.2l1.7-1.3-1.7-3-2.1.8a7.5 7.5 0 0 0-1.9-1.1l-.3-2.2h-3.4l-.3 2.2a7.5 7.5 0 0 0-1.9 1.1l-2.1-.8-1.7 3 1.7 1.3a7.4 7.4 0 0 0 0 2.2l-1.7 1.3 1.7 3 2.1-.8a7.5 7.5 0 0 0 1.9 1.1l.3 2.2h3.4l.3-2.2a7.5 7.5 0 0 0 1.9-1.1l2.1.8 1.7-3z"/></svg>'
+  );
+}
+
+function bwiEnsureItemModal() {
+  let overlay = document.getElementById("bwi-item-modal");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "bwi-item-modal";
+  overlay.className = "bwi-item-modal hidden";
+  overlay.innerHTML =
+    '<div class="bwi-item-modal-panel" role="dialog" aria-modal="true">' +
+    '<div class="bwi-item-modal-head">' +
+    '<span class="bwi-item-modal-title"></span>' +
+    '<button type="button" class="bwi-item-modal-close" aria-label="Close">✕</button>' +
+    "</div>" +
+    '<div class="bwi-item-modal-body"></div>' +
+    "</div>";
+  document.body.appendChild(overlay);
+  function close() {
+    overlay.classList.add("hidden");
+  }
+  overlay.addEventListener("click", function (ev) {
+    if (ev.target === overlay) close();
+  });
+  overlay
+    .getElementsByClassName("bwi-item-modal-close")[0]
+    .addEventListener("click", close);
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape" && !overlay.classList.contains("hidden")) close();
+  });
+  return overlay;
+}
+
+function bwiOpenItemModal(title, kind, list, opts) {
+  const overlay = bwiEnsureItemModal();
+  const titleEl = overlay.getElementsByClassName("bwi-item-modal-title")[0];
+  const body = overlay.getElementsByClassName("bwi-item-modal-body")[0];
+  titleEl.textContent = title || "";
+  body.innerHTML = "";
+  const host = document.createElement("div");
+  if (kind === "itemGrid") {
+    host.className = "bwi-item-grid";
+    body.appendChild(host);
+    bwiPaintItemGrid(host, list, opts);
+  } else {
+    host.className = "bwi-item-strip";
+    body.appendChild(host);
+    bwiPaintItemList(host, list, opts);
+  }
+  overlay.classList.remove("hidden");
+}
+
+/**
+ * Resolve optional side-item config for labelProgressBar.
+ * Prefer nested `options.item`; flat itemKey/itemSize/itemRaise still work.
+ * @param {object | null | undefined} options
+ * @returns {{ key: string, size: number, raise: number } | null}
+ */
+function bwiBarItemOpts(options) {
+  if (!options) return null;
+  const nested = options.item;
+  if (nested && typeof nested === "object" && nested.key) {
+    return {
+      key: String(nested.key),
+      size: typeof nested.size === "number" ? nested.size : 28,
+      raise: typeof nested.raise === "number" ? nested.raise : 6,
+    };
+  }
+  if (options.itemKey) {
+    return {
+      key: String(options.itemKey),
+      size: typeof options.itemSize === "number" ? options.itemSize : 28,
+      raise: typeof options.itemRaise === "number" ? options.itemRaise : 6,
+    };
+  }
+  return null;
+}
+
+/**
+ * Optional iteminstance to the right of a labelProgressBar (e.g. HP/MP pots).
+ * Enabled only when options.item / itemKey is set — caracAL opts in via schema.
+ * @param {HTMLElement} row
+ * @param {object} data
+ * @param {object | null | undefined} options
+ */
+function bwiPaintBarItem(row, data, options) {
+  if (!row) return;
+  const host = row.getElementsByClassName("bwi-bar-item")[0];
+  if (!host) return;
+  const cfg = bwiBarItemOpts(options);
+  if (!cfg) {
+    row.classList.remove("has-bar-item");
+    host.classList.add("hidden");
+    host.innerHTML = "";
+    host.style.transform = "";
+    return;
+  }
+  const inst = data && data[cfg.key];
+  if (!inst || typeof inst !== "object" || !(inst.name || inst.skin)) {
+    row.classList.remove("has-bar-item");
+    host.classList.add("hidden");
+    host.innerHTML = "";
+    host.style.transform = "";
+    return;
+  }
+  row.classList.add("has-bar-item");
+  host.classList.remove("hidden");
+  host.style.transform = "translateY(-" + cfg.raise + "px)";
+  let itemEl = host.getElementsByClassName("bwi-item")[0];
+  if (!itemEl) {
+    host.innerHTML = "";
+    itemEl = document.createElement("div");
+    itemEl.className = "bwi-item";
+    host.appendChild(itemEl);
+  }
+  const paintInst = Object.assign({}, inst);
+  if (paintInst.q != null && paintInst.showQuantity == null) {
+    paintInst.showQuantity = true;
+  }
+  bwiPaintItemEl(itemEl, paintInst, { size: cfg.size });
+}
+
+/**
+ * Wire a labelProgressBar to open an item modal from a sibling data key.
+ * @param {HTMLElement} row
+ * @param {object} data
+ * @param {string} [label]
+ * @param {{ key?: string, kind?: string, title?: string, cols?: number, slots?: number, modalSize?: number, wrap?: boolean } | null} modal
+ */
+function bwiBindProgressModal(row, data, label, modal) {
+  if (!row) return;
+  if (!modal || !modal.key) {
+    row.classList.remove("bwi-modal-bar");
+    row.removeAttribute("tabindex");
+    row.removeAttribute("title");
+    row._bwiModal = null;
+    return;
+  }
+  row.classList.add("bwi-modal-bar");
+  const title = modal.title || label || modal.key;
+  row.setAttribute("tabindex", "0");
+  row.setAttribute("title", "Open " + title);
+  row.setAttribute("aria-label", title + ", open details");
+  const list =
+    data && Array.isArray(data[modal.key]) ? data[modal.key] : [];
+  row._bwiModal = {
+    title: title,
+    kind: modal.kind || "itemStrip",
+    list: list,
+    opts: {
+      size: modal.modalSize || 56,
+      fill: false,
+      wrap: !!modal.wrap,
+      cols: modal.cols,
+      slots: modal.slots,
+    },
+  };
+  if (row._bwiModalBound) return;
+  row._bwiModalBound = true;
+  function open() {
+    const m = row._bwiModal;
+    if (!m) return;
+    bwiOpenItemModal(m.title, m.kind, m.list, m.opts);
+  }
+  row.addEventListener("click", open);
+  row.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      open();
+    }
+  });
+}
+
+function bwiPaintModalStrip(container, data, options) {
+  options = options || {};
+  const entries = options.entries || [];
+  const size = options.size || 28;
+  const kids = container.children;
+  while (kids.length > entries.length) {
+    container.removeChild(container.lastChild);
+  }
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i] || {};
+    const key = entry.key || entry.name || "panel" + i;
+    let btn = kids[i];
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bwi-modal-strip-btn";
+      btn.innerHTML =
+        '<span class="bwi-modal-strip-icon"></span>' +
+        '<span class="bwi-modal-strip-text">' +
+        '<span class="bwi-modal-strip-label"></span>' +
+        '<span class="bwi-modal-strip-meta"></span>' +
+        "</span>";
+      container.appendChild(btn);
+      btn.addEventListener("click", function () {
+        const list = btn._bwiList || [];
+        const kind = btn._bwiKind || "itemStrip";
+        const modalOpts = btn._bwiModalOpts || { size: 56, fill: false };
+        bwiOpenItemModal(btn._bwiLabel || key, kind, list, modalOpts);
+      });
+    }
+    const list =
+      data && Array.isArray(data[key])
+        ? data[key]
+        : Array.isArray(entry.list)
+          ? entry.list
+          : [];
+    const kind = entry.kind || entry.type || "itemStrip";
+    const used = bwiCountOccupied(list);
+    let meta = String(used);
+    if (kind === "itemGrid" && typeof entry.slots === "number") {
+      meta = used + "/" + entry.slots;
+    }
+    const label = entry.label || key;
+    btn._bwiList = list;
+    btn._bwiKind = kind;
+    btn._bwiLabel = label;
+    btn._bwiModalOpts = {
+      size: entry.modalSize || options.modalSize || 56,
+      fill: false,
+      wrap: kind !== "itemGrid",
+      cols: entry.cols,
+      slots: entry.slots,
+    };
+    btn.title = label + " · " + meta;
+    btn.setAttribute("aria-label", btn.title);
+    const iconHost = btn.getElementsByClassName("bwi-modal-strip-icon")[0];
+    const labelEl = btn.getElementsByClassName("bwi-modal-strip-label")[0];
+    const metaEl = btn.getElementsByClassName("bwi-modal-strip-meta")[0];
+    if (iconHost && iconHost.getAttribute("data-icon") !== (entry.icon || "gear")) {
+      iconHost.setAttribute("data-icon", entry.icon || "gear");
+      iconHost.innerHTML = bwiUiGlyph(entry.icon || "gear", size);
+    } else if (iconHost) {
+      const svg = iconHost.getElementsByTagName("svg")[0];
+      if (svg) {
+        svg.setAttribute("width", String(size));
+        svg.setAttribute("height", String(size));
+      }
+    }
+    if (labelEl && labelEl.textContent !== label) labelEl.textContent = label;
+    if (metaEl && metaEl.textContent !== meta) metaEl.textContent = meta;
+  }
+}
+
+/**
+ * Optional <details> chrome around a widget (inventory, trades, gear, …).
+ * @returns {string} html
+ */
+function bwiWrapFold(name, label, options, widgetHtml) {
+  if (!options || !options.collapsible) return widgetHtml;
+  const openAttr = bwiFoldShouldOpen(name, options) ? " open" : "";
+  const summary = label || name;
+  return (
+    '<details class="bwi-fold" data-fold="' +
+    name +
+    '"' +
+    openAttr +
+    ">" +
+    '<summary class="bwi-fold-summary">' +
+    '<span class="bwi-fold-label">' +
+    summary +
+    "</span>" +
+    '<span class="bwi-fold-meta"></span>' +
+    "</summary>" +
+    '<div class="bwi-fold-body">' +
+    widgetHtml +
+    "</div>" +
+    "</details>"
+  );
+}
+
+function bwiBindFolds(root) {
+  if (!root || root._bwiFoldsBound) return;
+  root._bwiFoldsBound = true;
+  const folds = root.getElementsByClassName("bwi-fold");
+  for (let i = 0; i < folds.length; i++) {
+    const fold = folds[i];
+    const key = fold.getAttribute("data-fold");
+    if (!key || fold._bwiFoldBound) continue;
+    fold._bwiFoldBound = true;
+    fold.addEventListener("toggle", function () {
+      try {
+        localStorage.setItem(bwiFoldStorageKey(key), fold.open ? "1" : "0");
+      } catch (e) {
+        /* ignore */
+      }
+    });
+  }
+}
+
+function bwiUpdateFoldMeta(row, text) {
+  if (!row || typeof row.closest !== "function") return;
+  const fold = row.closest(".bwi-fold");
+  if (!fold) return;
+  const meta = fold.getElementsByClassName("bwi-fold-meta")[0];
+  if (meta && meta.textContent !== text) meta.textContent = text || "";
+}
+
+function bwiPaintItemList(container, list, opts) {
+  opts = opts || {};
+  const fill = opts.fill === true;
+  const wrap = !!opts.wrap;
+  const preferred = opts.size || 40;
+  const items = Array.isArray(list) ? list : [];
+  container._bwiList = items;
+  container._bwiOpts = opts;
+  container.style.flexWrap = wrap ? "wrap" : "nowrap";
+
+  function paint() {
+    const n = Math.max(1, items.length);
+    let size = preferred;
+    if (fill) {
+      if (wrap) {
+        const w = container.clientWidth;
+        const gap = bwiContainerGapPx(container);
+        const cols = Math.max(
+          1,
+          w > 0 ? Math.floor((w + gap) / (preferred + gap)) : n,
+        );
+        size = bwiFitCellSize(container, Math.min(cols, n), preferred);
+      } else {
+        size = bwiFitCellSize(container, n, preferred);
+      }
+    }
+    const kids = container.children;
+    while (kids.length > items.length) {
+      container.removeChild(container.lastChild);
+    }
+    for (let i = 0; i < items.length; i++) {
+      let el = kids[i];
+      if (!el) {
+        el = document.createElement("div");
+        container.appendChild(el);
+      }
+      bwiPaintItemEl(el, items[i], { size });
+    }
+  }
+
+  bwiWatchItemLayout(container, function () {
+    bwiPaintItemList(container, container._bwiList, container._bwiOpts);
+  });
+  paint();
+}
+
+function bwiPaintItemGrid(container, list, opts) {
+  opts = opts || {};
+  const fill = opts.fill === true;
+  const preferred = opts.size || 36;
+  const cols = opts.cols || 7;
+  const slots =
+    typeof opts.slots === "number" && opts.slots > 0
+      ? opts.slots
+      : Array.isArray(list)
+        ? list.length
+        : 42;
+  const items = Array.isArray(list) ? list : [];
+  container._bwiList = items;
+  container._bwiOpts = opts;
+
+  function paint() {
+    const size = fill ? bwiFitCellSize(container, cols, preferred) : preferred;
+    if (fill) {
+      container.style.gridTemplateColumns =
+        "repeat(" + cols + ", minmax(0, 1fr))";
+    } else {
+      container.style.gridTemplateColumns =
+        "repeat(" + cols + ", " + size + "px)";
+    }
+    const kids = container.children;
+    while (kids.length > slots) {
+      container.removeChild(container.lastChild);
+    }
+    for (let i = 0; i < slots; i++) {
+      let el = kids[i];
+      if (!el) {
+        el = document.createElement("div");
+        container.appendChild(el);
+      }
+      bwiPaintItemEl(el, items[i] != null ? items[i] : null, {
+        size,
+        fillCell: fill,
+      });
+    }
+  }
+
+  bwiWatchItemLayout(container, function () {
+    bwiPaintItemGrid(container, container._bwiList, container._bwiOpts);
+  });
+  paint();
+}
+
+function bwiCountOccupied(list) {
+  if (!Array.isArray(list)) return 0;
+  let n = 0;
+  for (let i = 0; i < list.length; i++) {
+    if (list[i]) n++;
+  }
+  return n;
+}
+
 var BotUi = function (id, structure, parent, attachTarget) {
   this.id = id;
   this.structure = structure;
@@ -167,7 +830,6 @@ BotUi.prototype.create = function () {
     var label = this.structure[i].label;
     var type = this.structure[i].type;
     var options = this.structure[i].options;
-    // TODO: modal dialogs that can be opened on click?
     switch (type) {
       case "text": {
         if (!options)
@@ -332,16 +994,33 @@ BotUi.prototype.create = function () {
         const barBackgroundColor = options?.color
           ? `background-color:${options.color}`
           : "";
+        const itemCfg = bwiBarItemOpts(options);
+        const hasItem = !!itemCfg;
+        const modalTitle = options?.modal
+          ? options.modal.title || label || name
+          : "";
+        const rowClass =
+          name +
+          " bwi-bar-row" +
+          (hasItem ? " has-bar-item" : "") +
+          (options?.modal ? " bwi-modal-bar" : "");
+        const modalAttrs = options?.modal
+          ? ` tabindex="0" title="Open ${modalTitle}" aria-label="${modalTitle}, open details"`
+          : "";
 
-        // TODO: would like some margins on x axis
-        html += `<div class="${name} relative my-0.5 flex w-full ${height} ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
-                    <div class="bar h-full flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${barBackgroundColor}"></div>
-                    <div class="absolute inset-y-0 left-0 right-0 flex items-center ${barPadding}">
-                      <div class="flex w-full flex-row justify-between">
-                        <div class="justify-self-start">${label}&nbsp;</div>
-                        <div class="justify-self-end value">0%</div>
+        // Optional side item (options.item / itemKey) sits right of the track,
+        // raised slightly — caracAL opts in via schema; bars without it stay flat.
+        html += `<div class="${rowClass}"${modalAttrs}>
+                    <div class="bwi-bar-track relative flex w-full ${height} ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                      <div class="bar h-full flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${barBackgroundColor}"></div>
+                      <div class="absolute inset-y-0 left-0 right-0 flex items-center ${barPadding}">
+                        <div class="flex w-full flex-row items-center justify-between gap-1">
+                          <div class="justify-self-start shrink-0">${label}&nbsp;</div>
+                          <div class="justify-self-end value">0%</div>
+                        </div>
                       </div>
                     </div>
+                    <div class="bwi-bar-item${hasItem ? "" : " hidden"}"></div>
                   </div>`;
         // TODO: text left side, percent right side
         break;
@@ -352,6 +1031,34 @@ BotUi.prototype.create = function () {
           <div class="${name} flex flex-col">
           </div>
         `;
+        break;
+      }
+      case "icon":
+      case "item": {
+        const size = (options && options.size) || 40;
+        html += `<div class="${name} bwi-item-host"><div class="bwi-item" style="width:${size}px;height:${size}px"></div></div>`;
+        break;
+      }
+      case "itemStrip": {
+        html += bwiWrapItemChrome(
+          name,
+          label,
+          options,
+          `<div class="${name} bwi-item-strip"></div>`,
+        );
+        break;
+      }
+      case "itemGrid": {
+        html += bwiWrapItemChrome(
+          name,
+          label,
+          options,
+          `<div class="${name} bwi-item-grid"></div>`,
+        );
+        break;
+      }
+      case "modalStrip": {
+        html += `<div class="${name} bwi-modal-strip"></div>`;
         break;
       }
       case "image":
@@ -479,6 +1186,7 @@ BotUi.prototype.create = function () {
     }
   }
   element.innerHTML = html;
+  bwiBindFolds(element);
   this.element = element;
   if (this.parent) {
     this.parent.children.push(this);
@@ -510,7 +1218,7 @@ BotUi.prototype.render = function (onlyNames) {
     const value = this.data[name]; // TODO: sharing of the same data source across components? so we don't send it excessively? modals, chars, e.g. pie chart over loot table
     let options = this.structure[i].options;
 
-    if (value === undefined) continue;
+    if (value === undefined && type !== "modalStrip") continue;
 
     // TODO: is there an issue with the name? e.g. we have two "timers" and it's not properly found in the subUI?
 
@@ -641,11 +1349,58 @@ BotUi.prototype.render = function (onlyNames) {
           row._pbWidth = widthStr;
         }
         this._setProgressValueText(row, value[1]);
+        bwiPaintBarItem(row, this.data, options);
+        bwiBindProgressModal(
+          row,
+          this.data,
+          this.structure[i].label,
+          options && options.modal,
+        );
         break;
       }
       case "image":
         row.getElementsByTagName("img")[0].src = value;
         break;
+      case "icon":
+      case "item": {
+        const size = (options && options.size) || (value && value.size) || 40;
+        let host = row.getElementsByClassName("bwi-item")[0];
+        if (!host) {
+          host = document.createElement("div");
+          row.appendChild(host);
+        }
+        bwiPaintItemEl(host, value, { size });
+        break;
+      }
+      case "itemStrip": {
+        const size = (options && options.size) || 40;
+        const fill = options && options.fill;
+        const wrap = options && options.wrap;
+        bwiPaintItemList(row, value, {
+          size,
+          fill: fill === true,
+          wrap: !!wrap,
+        });
+        break;
+      }
+      case "itemGrid": {
+        const size = (options && options.size) || 36;
+        const cols = (options && options.cols) || 7;
+        const slots = (options && options.slots) || undefined;
+        const fill = options && options.fill;
+        bwiPaintItemGrid(row, value, {
+          size,
+          cols,
+          slots,
+          fill: fill === true,
+        });
+        break;
+      }
+      case "modalStrip": {
+        // Lists live on sibling data keys (gear/bag/trades); value may be unused.
+        bwiPaintModalStrip(row, this.data, options || {});
+        break;
+      }
       case "button": {
         const btnEl = row.getElementsByTagName("button")[0];
         if (btnEl && value != null && value !== "") {
@@ -666,12 +1421,33 @@ BotUi.prototype.render = function (onlyNames) {
         for (let index = 0; index < value.length; index++) {
           const element = value[index];
           const newRow = newTbody.insertRow(index);
-          newRow.innerHTML = element
-            .map(
-              (rowColumnValue) =>
-                `<td class="border-b border-slate-100 dark:border-slate-700 ${padding} text-slate-500 dark:text-slate-400">${rowColumnValue}</td>`
-            )
-            .join("");
+          let htmlCells = "";
+          for (let c = 0; c < element.length; c++) {
+            const cell = element[c];
+            if (cell && typeof cell === "object" && (cell.name || cell.skin)) {
+              htmlCells +=
+                `<td class="border-b border-slate-100 dark:border-slate-700 ${padding} text-slate-700 dark:text-slate-200 align-middle"><div class="bwi-item bwi-table-item" data-table-item="${c}"></div></td>`;
+            } else {
+              htmlCells +=
+                `<td class="border-b border-slate-100 dark:border-slate-700 ${padding} text-slate-700 dark:text-slate-200 align-middle">${cell}</td>`;
+            }
+          }
+          newRow.innerHTML = htmlCells;
+          for (let c = 0; c < element.length; c++) {
+            const cell = element[c];
+            if (cell && typeof cell === "object" && (cell.name || cell.skin)) {
+              const host = newRow.querySelector('[data-table-item="' + c + '"]');
+              if (host) {
+                const paintInst = Object.assign({}, cell);
+                if (paintInst.q != null && paintInst.showQuantity == null) {
+                  paintInst.showQuantity = true;
+                }
+                bwiPaintItemEl(host, paintInst, {
+                  size: (options && options.itemSize) || 32,
+                });
+              }
+            }
+          }
         }
 
         row.replaceChild(newTbody, row.getElementsByTagName("tbody")[0]);
@@ -686,6 +1462,10 @@ BotUi.prototype.render = function (onlyNames) {
             ms,
             ims,
             endsAt,
+            skin,
+            icon,
+            buff,
+            debuff,
           } = value[index];
 
           let timerElement = row.querySelector(`#${name}${index}`);
@@ -705,6 +1485,17 @@ BotUi.prototype.render = function (onlyNames) {
           const rightNext = rightText ?? "";
           if (leftEl.textContent !== leftNext) leftEl.textContent = leftNext;
           if (rightEl.textContent !== rightNext) rightEl.textContent = rightNext;
+
+          const iconEl = timerElement.getElementsByClassName("timer-icon")[0];
+          if (iconEl) {
+            const iconInst =
+              icon ||
+              (skin ? { skin: skin, showLevel: false, showQuantity: false } : null);
+            bwiPaintItemEl(iconEl, iconInst, { size: 24 });
+            iconEl.style.display = iconInst ? "" : "none";
+          }
+          timerElement.classList.toggle("timer-buff", !!buff);
+          timerElement.classList.toggle("timer-debuff", !!debuff);
 
           const now = Date.now();
           let end =
@@ -750,6 +1541,8 @@ BotUi.prototype.render = function (onlyNames) {
             timerElement.style.display = "none";
           }
           timerElement.classList.remove("timer-urgent");
+          timerElement.classList.remove("timer-buff");
+          timerElement.classList.remove("timer-debuff");
           BwiClock.timers.delete(timerElement);
           delete timerElement.dataset.endsAt;
         }
@@ -916,11 +1709,12 @@ BotUi.prototype.addTimerElement = function (row, name, options, index) {
   const background = "bg-slate-200 dark:bg-slate-800";
   // Single flex row (not 3 absolute layers): time sits on a dark chip so it
   // stays readable whether the fill is wide, narrow, or mid-glyph.
-  html = `<div id="${name}${index}" class="${name} timer-bar relative my-0.5 flex h-6 w-full overflow-hidden ${background} text-sm leading-tight" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+  html = `<div id="${name}${index}" class="${name} timer-bar relative my-0.5 flex h-7 w-full overflow-hidden ${background} text-sm leading-tight" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
                 <div class="bar h-full flex flex-col justify-center overflow-hidden bg-sky-900 text-white text-center whitespace-nowrap dark:bg-sky-800" style="width: 25%;${
                   options?.color ? `background-color:${options.color}` : ""
                 }"></div>
-                <div class="absolute inset-y-0 left-0 right-0 flex items-center gap-2 px-1.5 pointer-events-none">
+                <div class="absolute inset-y-0 left-0 right-0 flex items-center gap-1.5 px-1 pointer-events-none">
+                  <div class="timer-icon bwi-item shrink-0 is-empty" style="width:24px;height:24px;border-width:1px"></div>
                   <div class="textValueLeft timer-name min-w-0 flex-1 truncate"></div>
                   <div class="textValueMiddle timer-time shrink-0"></div>
                   <div class="textValueRight timer-right shrink-0"></div>

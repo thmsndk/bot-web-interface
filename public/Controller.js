@@ -47,6 +47,10 @@ Controller.prototype.start = function () {
       document.title = data.title;
     }
 
+    if (typeof BwiAtlas !== "undefined" && data.atlas) {
+      BwiAtlas.set(data.atlas);
+    }
+
     /**
      * @typedef {object} data
      * @typedef {Array<int>} data.dataIDs
@@ -112,6 +116,10 @@ Controller.prototype.start = function () {
 
   socket.on("noAuthRequired", function () {
     socket.emit("auth");
+  });
+
+  socket.on("atlas", function (atlas) {
+    if (typeof BwiAtlas !== "undefined") BwiAtlas.set(atlas);
   });
 
   socket.on("updateBotUI", function (data) {

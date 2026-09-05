@@ -1,0 +1,245 @@
+{
+  "origin": "https://adventure.land",
+  "imagesets": {
+    "pack_20": {
+      "size": 20,
+      "columns": 16,
+      "rows": 64,
+      "file": "/images/tiles/items/pack_20vt8.png"
+    },
+    "skills": {
+      "size": 20,
+      "columns": 16,
+      "rows": 13,
+      "file": "/images/tiles/items/skills_20v6.png"
+    },
+    "custom": {
+      "size": 20,
+      "columns": 7,
+      "rows": 9,
+      "file": "/images/tiles/items/custom.png?v=12"
+    }
+  },
+  "positions": {
+    "harbringer": [
+      "",
+      7,
+      10
+    ],
+    "hpamulet": [
+      "",
+      4,
+      19
+    ],
+    "scroll1": [
+      "",
+      12,
+      23
+    ],
+    "cscroll0": [
+      "",
+      0,
+      24
+    ],
+    "cscroll1": [
+      "",
+      15,
+      23
+    ],
+    "offeringp": [
+      "",
+      1,
+      62
+    ],
+    "hpot0": [
+      "",
+      4,
+      21
+    ],
+    "hpot1": [
+      "",
+      6,
+      21
+    ],
+    "mpot0": [
+      "",
+      5,
+      21
+    ],
+    "mpot1": [
+      "",
+      7,
+      21
+    ],
+    "helmet": [
+      "",
+      2,
+      0
+    ],
+    "coat": [
+      "",
+      2,
+      1
+    ],
+    "pants": [
+      "",
+      2,
+      4
+    ],
+    "shoes": [
+      "",
+      2,
+      5
+    ],
+    "fireblade": [
+      "",
+      1,
+      8
+    ],
+    "buff_luck": [
+      "skills",
+      0,
+      9
+    ],
+    "condition_bad": [
+      "skills",
+      13,
+      9
+    ],
+    "skill_hardshell": [
+      "skills",
+      4,
+      1
+    ],
+    "poison": [
+      "",
+      8,
+      21
+    ],
+    "withdrawal": [
+      "skills",
+      4,
+      9
+    ],
+    "placeholder": [
+      "custom",
+      3,
+      1
+    ]
+  },
+  "items": {
+    "harbringer": {
+      "skin": "harbringer",
+      "name": "Harbringer",
+      "upgrade": true
+    },
+    "hpamulet": {
+      "skin": "hpamulet",
+      "name": "Amulet of HP",
+      "compound": true
+    },
+    "scroll1": {
+      "skin": "scroll1",
+      "name": "High Upgrade Scroll"
+    },
+    "cscroll0": {
+      "skin": "cscroll0",
+      "name": "Compound Scroll"
+    },
+    "cscroll1": {
+      "skin": "cscroll1",
+      "name": "High Compound Scroll"
+    },
+    "offeringp": {
+      "skin": "offeringp",
+      "name": "Primling"
+    },
+    "hpot0": {
+      "skin": "hpot0",
+      "name": "HP Potion"
+    },
+    "hpot1": {
+      "skin": "hpot1",
+      "name": "HP Potion"
+    },
+    "mpot0": {
+      "skin": "mpot0",
+      "name": "MP Potion"
+    },
+    "mpot1": {
+      "skin": "mpot1",
+      "name": "MP Potion"
+    },
+    "helmet": {
+      "skin": "helmet",
+      "name": "Helmet",
+      "upgrade": true
+    },
+    "coat": {
+      "skin": "coat",
+      "name": "Coat",
+      "upgrade": true
+    },
+    "pants": {
+      "skin": "pants",
+      "name": "Pants",
+      "upgrade": true
+    },
+    "shoes": {
+      "skin": "shoes",
+      "name": "Shoes",
+      "upgrade": true
+    },
+    "fireblade": {
+      "skin": "fireblade",
+      "name": "Fiery Blade",
+      "upgrade": true
+    }
+  },
+  "conditions": {
+    "burned": {
+      "skin": "fireblade",
+      "name": "Burned",
+      "debuff": true
+    },
+    "mluck": {
+      "skin": "buff_luck",
+      "name": "Good Luck",
+      "buff": true
+    },
+    "cursed": {
+      "skin": "condition_bad",
+      "name": "Cursed",
+      "debuff": true
+    },
+    "hardshell": {
+      "skin": "skill_hardshell",
+      "name": "Hard Shell",
+      "buff": true
+    },
+    "poisoned": {
+      "skin": "poison",
+      "name": "Poison",
+      "debuff": true
+    },
+    "withdrawal": {
+      "skin": "withdrawal",
+      "name": "Withdrawal",
+      "debuff": true
+    }
+  },
+  "titles": {
+    "lucky": {
+      "title": "Lucky"
+    },
+    "glitched": {
+      "title": "Glitched"
+    },
+    "shiny": {
+      "title": "Shiny"
+    },
+    "festive": {
+      "title": "Festive"
+    }
+  }
+}

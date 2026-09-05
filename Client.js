@@ -10,14 +10,20 @@ class Client {
     this.setupSend = false;
   }
 
-  sendSetup(title, structure, dataList) {
+  sendSetup(title, structure, dataList, atlas) {
     const res = {
       title,
       dataCache: dataList,
       structure: structure,
     };
+    if (atlas) res.atlas = atlas;
     this.socket.emit("setup", res);
     this.setupSend = true;
+  }
+
+  sendAtlas(atlas) {
+    if (!this.setupSend) return;
+    this.socket.emit("atlas", atlas || null);
   }
 
   sendUpdate(dataList) {

@@ -44,6 +44,32 @@ class BotWebInterface {
 
   setRoutes() {
     this.router.use("/", express.static(__dirname + "/public"));
+
+    // Same-origin proxy for adventure.land tilesheets (CORS-safe icon crops).
+    this.router.get(/^\/al-assets\/(.*)/, (req, res) => {
+      const rel = req.params[0] || "";
+      if (!rel || rel.includes("..")) {
+        res.status(400).send("bad path");
+        return;
+      }
+      const target = "https://adventure.land/" + rel.replace(/^\//, "");
+      const upstream = require("https").get(target, (up) => {
+        if (up.statusCode && up.statusCode >= 400) {
+          res.status(up.statusCode).end();
+          up.resume();
+          return;
+        }
+        if (up.headers["content-type"]) {
+          res.setHeader("content-type", up.headers["content-type"]);
+        }
+        res.setHeader("cache-control", "public, max-age=86400");
+        up.pipe(res);
+      });
+      upstream.on("error", () => {
+        if (!res.headersSent) res.status(502).send("upstream error");
+      });
+    });
+
     this.router.use("/sha512.js", function (req, res) {
       res.sendFile(
         path.resolve(
