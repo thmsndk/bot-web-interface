@@ -184,12 +184,10 @@ class BotWebInterface {
   }
 
   removeClient(client) {
-    for (let i in this.clients) {
-      if (this.clients[i] === client) {
-        this.publisher.clientLeft(client);
-        delete this.clients[i];
-      }
-    }
+    const idx = this.clients.indexOf(client);
+    if (idx < 0) return;
+    this.publisher.clientLeft(client);
+    this.clients.splice(idx, 1);
   }
 }
 

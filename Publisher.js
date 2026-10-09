@@ -99,11 +99,8 @@ class Publisher {
    * Fetch all interface data, deep-diff per field, emit one batched delta if anything changed.
    */
   publishOnce() {
+    // No viewers: skip fetch/diff. clientJoined() refetches a fresh snapshot on join.
     if (this.clients.length === 0) {
-      // Still refresh caches so a later join gets fresh fetch on setup after fetchData
-      for (let [, botUI] of this.botUIs) {
-        botUI.fetchData();
-      }
       return;
     }
 
@@ -146,9 +143,7 @@ class Publisher {
     if (!hasChanges) return;
 
     for (let i = 0; i < this.clients.length; i++) {
-      if (this.clients[i]) {
-        this.clients[i].sendDelta(deltas);
-      }
+      this.clients[i].sendDelta(deltas);
     }
   }
 
@@ -172,7 +167,10 @@ class Publisher {
   }
 
   clientLeft(client) {
-    delete this.clients[client.id];
+    const idx = this.clients.indexOf(client);
+    if (idx >= 0) {
+      this.clients.splice(idx, 1);
+    }
     console.log("Client " + client.id + " left");
   }
 
@@ -181,19 +179,15 @@ class Publisher {
     let botUI = new BotUI(this, botUICount++, structure, parent, attachTarget);
     this.botUIs.set(botUI.id, botUI);
     this.lastSent.set(botUI.id, {});
-    for (let i in this.clients) {
-      if (this.clients[i]) {
-        this.clients[i].createInterface(botUI);
-      }
+    for (let i = 0; i < this.clients.length; i++) {
+      this.clients[i].createInterface(botUI);
     }
     return botUI;
   }
 
   removeInterfaces(ids) {
-    for (let i in this.clients) {
-      if (this.clients[i]) {
-        this.clients[i].removeInterface(ids);
-      }
+    for (let i = 0; i < this.clients.length; i++) {
+      this.clients[i].removeInterface(ids);
     }
     for (let id of ids) {
       this.botUIs.delete(id);
@@ -217,8 +211,9 @@ class Publisher {
   setAtlas(atlas) {
     this.atlas = atlas && typeof atlas === "object" ? atlas : null;
     for (let i = 0; i < this.clients.length; i++) {
-      if (this.clients[i] && typeof this.clients[i].sendAtlas === "function") {
-        this.clients[i].sendAtlas(this.atlas);
+      const client = this.clients[i];
+      if (typeof client.sendAtlas === "function") {
+        client.sendAtlas(this.atlas);
       }
     }
   }
@@ -227,10 +222,8 @@ class Publisher {
     const prev = this.lastSent.get(id) || {};
     if (valuesEqual(prev[name], value)) return;
     this.lastSent.set(id, { ...prev, [name]: cloneValue(value) });
-    for (var i = 0; i < this.clients.length; i++) {
-      if (this.clients[i]) {
-        this.clients[i].pushData(id, name, value);
-      }
+    for (let i = 0; i < this.clients.length; i++) {
+      this.clients[i].pushData(id, name, value);
     }
   }
 }

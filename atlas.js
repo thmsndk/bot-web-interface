@@ -111,17 +111,36 @@ function extractAtlas(G, opts) {
     };
   }
 
+  // Shallow-copy sheet tables so BWI does not retain the live game `G` graph.
+  const imagesets = {};
+  const srcImagesets = G.imagesets || {};
+  for (const key of Object.keys(srcImagesets)) {
+    const pack = srcImagesets[key];
+    if (pack && typeof pack === "object") {
+      imagesets[key] = Object.assign({}, pack);
+    }
+  }
+  const positions = {};
+  const srcPositions = G.positions || {};
+  for (const key of Object.keys(srcPositions)) {
+    positions[key] = srcPositions[key];
+  }
+
   const atlas = {
     origin: opts.origin || AL_ORIGIN,
-    imagesets: G.imagesets || {},
-    positions: G.positions || {},
+    imagesets,
+    positions,
     items,
     titles,
     conditions,
   };
 
   if (opts.includeSprites && G.sprites) {
-    atlas.sprites = G.sprites;
+    const sprites = {};
+    for (const key of Object.keys(G.sprites)) {
+      sprites[key] = G.sprites[key];
+    }
+    atlas.sprites = sprites;
   }
 
   return atlas;
@@ -154,11 +173,51 @@ function normalizeItemInstance(raw) {
   if (raw.side) out.side = raw.side;
   if (raw.slot) out.slot = raw.slot;
   if (raw.giveaway) out.giveaway = raw.giveaway;
+  const want = normalizeTradeWant(raw.want);
+  if (want) out.want = want;
   return out;
 }
 
 /**
+ * Item-for-item stand offer (`trade_offer` / `trade_swap`) — `want` may be a
+ * plain item key or `{ name, level?, p?, q? }`.
+ * @param {unknown} want
+ * @returns {{ name: string, level?: number, q?: number, p?: string } | null}
+ */
+function normalizeTradeWant(want) {
+  if (want == null) return null;
+  if (typeof want === "string") {
+    if (!want) return null;
+    return { name: want };
+  }
+  if (typeof want !== "object" || typeof want.name !== "string" || !want.name) {
+    return null;
+  }
+  const out = { name: want.name };
+  if (typeof want.level === "number" && Number.isFinite(want.level)) {
+    out.level = Math.floor(want.level);
+  }
+  if (typeof want.q === "number" && Number.isFinite(want.q) && want.q > 0) {
+    out.q = Math.floor(want.q);
+  }
+  if (typeof want.p === "string" && want.p) out.p = want.p;
+  return out;
+}
+
+/** Compact badge / tooltip fragment for a want SKU. */
+function formatTradeWantShort(want) {
+  if (!want || !want.name) return "SWAP";
+  let name = String(want.name);
+  if (name.indexOf("slice_") === 0) name = name.slice(6);
+  let s = name;
+  if (want.level != null) s += "+" + want.level;
+  if (want.q != null && want.q > 1) s = want.q + "×" + s;
+  return "↔" + s;
+}
+
+/**
  * Non-empty merchant trade slots as iteminstances (price/side chrome on strip/grid).
+ * Includes gold listings, giveaways, and item-for-item `want` offers.
  * @param {{ slots?: object }} character
  * @param {{ includeGiveaways?: boolean }} [opts]
  * @returns {Array<object>}
@@ -173,19 +232,22 @@ function slimTradeListings(character, opts) {
     const key = keys[i];
     const it = slots[key];
     if (!it || !it.name) continue;
-    if (typeof it.price !== "number" && !it.giveaway) continue;
+    const want = !it.b && !it.giveaway ? normalizeTradeWant(it.want) : null;
+    const hasGold = typeof it.price === "number" && Number.isFinite(it.price);
+    if (!hasGold && !it.giveaway && !want) continue;
     if (it.giveaway && !opts.includeGiveaways) continue;
     const row = {
       slot: key,
-      side: it.b ? "buy" : it.giveaway ? "giveaway" : "sell",
+      side: it.b ? "buy" : it.giveaway ? "giveaway" : want ? "swap" : "sell",
       name: it.name,
-      price: typeof it.price === "number" ? it.price : 0,
       showQuantity: typeof it.q === "number" && it.q > 1,
     };
+    if (hasGold) row.price = it.price;
     if (typeof it.level === "number") row.level = it.level;
     if (typeof it.q === "number") row.q = it.q;
     if (it.p) row.p = it.p;
     if (it.giveaway) row.giveaway = it.giveaway;
+    if (want) row.want = want;
     out.push(row);
   }
   return out;
@@ -302,6 +364,8 @@ module.exports = {
   resolveItemSkin,
   extractAtlas,
   normalizeItemInstance,
+  normalizeTradeWant,
+  formatTradeWantShort,
   slimTradeListings,
   GEAR_SLOT_ORDER,
   slimGearGrid,

@@ -59,6 +59,7 @@ Controller.prototype.start = function () {
     for (var key in self.botUIs) {
       self.botUIs[key].destroy();
     }
+    self.botUIs = {};
 
     self.dataCache = data.dataCache;
     self.structure = data.structure;

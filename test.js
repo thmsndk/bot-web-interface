@@ -424,6 +424,14 @@ const showcaseState = {
       price: 12000,
       showQuantity: true,
     },
+    {
+      slot: "trade4",
+      side: "swap",
+      name: "slice_blueberry",
+      q: 1,
+      want: { name: "slice_mint", q: 1 },
+      showQuantity: true,
+    },
   ],
 };
 

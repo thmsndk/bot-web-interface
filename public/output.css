@@ -1362,6 +1362,10 @@ body {
   color: #fbbf24;
 }
 
+.bwi-item-price.is-want {
+  color: #67e8f9;
+}
+
 .bwi-item.is-buy {
   box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.85);
 }
@@ -1372,6 +1376,10 @@ body {
 
 .bwi-item.is-give {
   box-shadow: inset 0 0 0 2px rgba(168, 85, 247, 0.8);
+}
+
+.bwi-item.is-swap {
+  box-shadow: inset 0 0 0 2px rgba(34, 211, 238, 0.85);
 }
 
 .bwi-item-strip,

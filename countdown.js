@@ -7,6 +7,21 @@
  * faster than real time.
  */
 
+/** AL uses ~1e14 for innate monster buffs (e.g. poisonous). */
+const INDEFINITE_MS = 1e13;
+/** Don't render multi-day hour dumps; show ∞ instead. */
+const MAX_COUNTDOWN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * True for missing/NaN durations and game "forever" sentinels.
+ * @param {unknown} ms
+ * @returns {boolean}
+ */
+function isIndefiniteMs(ms) {
+  const n = Number(ms);
+  return !Number.isFinite(n) || n >= INDEFINITE_MS;
+}
+
 /**
  * Remaining ms after wall time since the sample.
  * @param {number} msAtSample remaining duration recorded at sample time
@@ -30,6 +45,7 @@ function remainingMs(msAtSample, sampledAt, now) {
  */
 function msToTime(duration) {
   const d = Math.max(0, Number(duration) || 0);
+  if (d >= INDEFINITE_MS || d >= MAX_COUNTDOWN_MS) return "∞";
   const tenths = Math.floor((d % 1000) / 100);
   const totalSec = Math.floor(d / 1000);
   const seconds = totalSec % 60;
@@ -70,6 +86,7 @@ function formatBeatAge(sampledAt, now, opts) {
  * Build a BWI timerList row from a sampled remaining duration.
  * `endsAt` lets the browser tick between beats without waiting for the next publish.
  * Optional `skin` / `icon` shows an atlas crop on the timer bar (buffs/debuffs).
+ * Indefinite / sentinel durations (AL monster poisonous, etc.) show ∞ and do not tick.
  * @param {{ name: string, ms: number, ims: number, rightText?: string, sampledAt?: number, now?: number, skin?: string, icon?: object, buff?: boolean, debuff?: boolean }} opts
  */
 function timerPresentation(opts) {
@@ -77,17 +94,23 @@ function timerPresentation(opts) {
     typeof opts.now === "number" && Number.isFinite(opts.now)
       ? opts.now
       : Date.now();
-  const left = remainingMs(opts.ms, opts.sampledAt, now);
+  const rawMs = Number(opts.ms);
+  const leftRaw = remainingMs(opts.ms, opts.sampledAt, now);
+  const indefinite =
+    isIndefiniteMs(rawMs) || leftRaw >= MAX_COUNTDOWN_MS;
+  const left = indefinite ? 0 : leftRaw;
   const ims = Number(opts.ims) > 0 ? Number(opts.ims) : 1;
   const row = {
     leftText: opts.name,
-    middleText: msToTime(left),
+    middleText: indefinite ? "∞" : msToTime(left),
     rightText: opts.rightText != null ? opts.rightText : "",
-    percentage: (left / ims) * 100,
-    ms: left,
-    ims,
-    endsAt: now + left,
+    percentage: indefinite ? 100 : (left / ims) * 100,
+    ims: indefinite ? 1 : ims,
   };
+  if (!indefinite) {
+    row.ms = left;
+    row.endsAt = now + left;
+  }
   if (opts.skin) row.skin = opts.skin;
   if (opts.icon) row.icon = opts.icon;
   if (opts.buff) row.buff = true;
@@ -96,6 +119,9 @@ function timerPresentation(opts) {
 }
 
 module.exports = {
+  INDEFINITE_MS,
+  MAX_COUNTDOWN_MS,
+  isIndefiniteMs,
   remainingMs,
   msToTime,
   formatBeatAge,

@@ -58,6 +58,8 @@ const BwiClock = {
 
 function bwiMsToTime(duration) {
   const d = Math.max(0, Number(duration) || 0);
+  // Match countdown.js: indefinite / multi-day dumps → ∞
+  if (d >= 1e13 || d >= 24 * 60 * 60 * 1000) return "∞";
   const tenths = Math.floor((d % 1000) / 100);
   const totalSec = Math.floor(d / 1000);
   const seconds = totalSec % 60;
@@ -145,6 +147,17 @@ function bwiNormalizeItem(raw) {
   return raw;
 }
 
+/** Compact badge for item-for-item wants (mirrors atlas.formatTradeWantShort). */
+function bwiFormatWantShort(want) {
+  if (!want || !want.name) return "SWAP";
+  let name = String(want.name);
+  if (name.indexOf("slice_") === 0) name = name.slice(6);
+  let s = name;
+  if (want.level != null) s += "+" + want.level;
+  if (want.q != null && want.q > 1) s = want.q + "×" + s;
+  return "↔" + s;
+}
+
 /**
  * Paint an Adventure Land iteminstance into a .bwi-item host element.
  * @param {HTMLElement} host
@@ -168,7 +181,7 @@ function bwiPaintItemEl(host, inst, opts) {
   const normalized = bwiNormalizeItem(inst);
   if (!normalized) {
     host.classList.add("is-empty");
-    host.classList.remove("is-buy", "is-sell", "is-give");
+    host.classList.remove("is-buy", "is-sell", "is-give", "is-swap");
     host.innerHTML = "";
     host.title = "";
     host.removeAttribute("data-item");
@@ -182,7 +195,10 @@ function bwiPaintItemEl(host, inst, opts) {
   const meta = atlas ? atlas.itemMeta(normalized.name) : {};
   let title = atlas ? atlas.displayTitle(normalized) : normalized.name || "";
   if (normalized.slot) title = title + " (" + normalized.slot + ")";
-  if (typeof normalized.price === "number") {
+  if (normalized.want && normalized.want.name) {
+    const wantLabel = bwiFormatWantShort(normalized.want);
+    title = title + " · swap wants " + wantLabel.replace(/^↔/, "");
+  } else if (typeof normalized.price === "number") {
     const px =
       atlas && atlas.abbreviateNumber
         ? atlas.abbreviateNumber(normalized.price)
@@ -202,10 +218,12 @@ function bwiPaintItemEl(host, inst, opts) {
       : null;
   host.style.borderColor = border || "rgba(71, 85, 105, 0.85)";
 
-  host.classList.remove("is-buy", "is-sell", "is-give");
+  host.classList.remove("is-buy", "is-sell", "is-give", "is-swap");
   if (normalized.side === "buy") host.classList.add("is-buy");
   else if (normalized.side === "giveaway") host.classList.add("is-give");
-  else if (typeof normalized.price === "number" || normalized.side === "sell") {
+  else if (normalized.side === "swap" || (normalized.want && normalized.want.name)) {
+    host.classList.add("is-swap");
+  } else if (typeof normalized.price === "number" || normalized.side === "sell") {
     host.classList.add("is-sell");
   }
 
@@ -287,7 +305,16 @@ function bwiPaintItemEl(host, inst, opts) {
   }
 
   if (priceEl) {
-    if (typeof normalized.price === "number" && paintSize >= 28) {
+    const wantBadge =
+      normalized.want && normalized.want.name
+        ? bwiFormatWantShort(normalized.want)
+        : null;
+    if (wantBadge && paintSize >= 28) {
+      priceEl.textContent = wantBadge;
+      priceEl.style.fontSize = Math.max(6, Math.round(paintSize * 0.16)) + "px";
+      priceEl.style.display = "";
+      priceEl.classList.add("is-want");
+    } else if (typeof normalized.price === "number" && paintSize >= 28) {
       const px =
         atlas && atlas.abbreviateNumber
           ? atlas.abbreviateNumber(normalized.price)
@@ -295,9 +322,11 @@ function bwiPaintItemEl(host, inst, opts) {
       priceEl.textContent = px;
       priceEl.style.fontSize = Math.max(7, Math.round(paintSize * 0.2)) + "px";
       priceEl.style.display = "";
+      priceEl.classList.remove("is-want");
     } else {
       priceEl.textContent = "";
       priceEl.style.display = "none";
+      priceEl.classList.remove("is-want");
     }
   }
 }
@@ -810,8 +839,56 @@ var BotUi = function (id, structure, parent, attachTarget) {
 };
 
 BotUi.prototype.destroy = function () {
-  if (this.element.parentNode)
-    this.element.parentNode.removeChild(this.element);
+  if (this._destroyed) return;
+  this._destroyed = true;
+
+  if (this.children && this.children.length) {
+    const kids = this.children.slice();
+    this.children.length = 0;
+    for (let i = 0; i < kids.length; i++) {
+      kids[i].destroy();
+    }
+  }
+
+  if (this.element) {
+    const mmapRows = this.element.getElementsByClassName("minimapDisplay");
+    for (let i = 0; i < mmapRows.length; i++) {
+      const row = mmapRows[i];
+      if (row._minimapRaf) {
+        cancelAnimationFrame(row._minimapRaf);
+        row._minimapRaf = null;
+      }
+      const mui = row._minimapUi;
+      if (mui) {
+        if (mui._staticLayer && mui._staticLayer.canvas) {
+          mui._staticLayer.canvas.width = 0;
+          mui._staticLayer.canvas.height = 0;
+        }
+        mui._staticLayer = null;
+        if (mui._fogCache && mui._fogCache.canvas) {
+          mui._fogCache.canvas.width = 0;
+          mui._fogCache.canvas.height = 0;
+        }
+        mui._fogCache = null;
+      }
+      row._minimapUi = null;
+      row._minimapState = null;
+    }
+
+    if (typeof Chart !== "undefined" && typeof Chart.getChart === "function") {
+      const canvases = this.element.getElementsByTagName("canvas");
+      for (let i = 0; i < canvases.length; i++) {
+        const chart = Chart.getChart(canvases[i]);
+        if (chart) chart.destroy();
+      }
+    }
+
+    if (this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+  }
+
+  this.element = null;
 };
 
 BotUi.prototype.create = function () {
