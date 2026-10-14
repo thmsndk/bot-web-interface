@@ -314,6 +314,7 @@ function create() {
       { name: "header", type: "leftMiddleRightText" },
       { name: "header2", type: "leftMiddleRightText" },
       { name: "header3", type: "leftMiddleRightText" },
+      { name: "dps", type: "leftMiddleRightText" },
       {
         name: "health",
         type: "labelProgressBar",
@@ -924,7 +925,7 @@ setInterval(function () {
         bank: quick_bar_val(bankUsed, state.bankSlots),
         gold: {
           left: `Gold: ${humanize_int(state.gold, 1)}`,
-          middle: "G×1.12 L×1.05 X×1.20",
+          middle: "",
           right: `${humanize_int(state.goldPerHour, 1)} G/h`,
         },
         favorites: showcaseState.favorites,
@@ -949,15 +950,15 @@ setInterval(function () {
           header: { left: "", middle: "No Target", right: "" },
           header2: { left: "", middle: " ", right: "" },
           header3: { left: "", middle: "", right: "" },
+          dps: { left: "", middle: "", right: "" },
           health: [100, " ", ""],
           mana: [100, " "],
           timers: [],
         };
       }
       const health = quick_bar_val(targetHp, targetMaxHp, true);
-      health.push(
-        `${humanize_int(targetDps, 1)} dps · ${targetTtkSec.toFixed(1)}s ttk`
-      );
+      health.push(`${targetTtkSec.toFixed(1)}s ttk`);
+      const youDps = targetDps * 0.35;
       return {
         header: {
           left: "bee",
@@ -974,6 +975,11 @@ setInterval(function () {
           left: "main",
           middle: "",
           right: `${beeX.toFixed(0)}, ${beeY.toFixed(0)}`,
+        },
+        dps: {
+          left: `you ${humanize_int(youDps, 1)}`,
+          middle: "",
+          right: `all ${humanize_int(targetDps, 1)}`,
         },
         health,
         mana: quick_bar_val(0, 1, true),
