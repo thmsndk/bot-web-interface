@@ -1087,19 +1087,20 @@ BotUi.prototype.create = function () {
 
         // Optional side item (options.item / itemKey) sits right of the track,
         // raised slightly — caracAL opts in via schema; bars without it stay flat.
+        // Optional value[2] paints a centered overlay (e.g. personal DPS + TTK).
         html += `<div class="${rowClass}"${modalAttrs}>
                     <div class="bwi-bar-track relative flex w-full ${height} ${background} ${text} overflow-hidden" role="progressbar" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
                       <div class="bar h-full flex flex-col justify-center overflow-hidden bg-blue-600 text-white text-center whitespace-nowrap dark:bg-blue-500 transition duration-500" style="width: 25%;${barBackgroundColor}"></div>
                       <div class="absolute inset-y-0 left-0 right-0 flex items-center ${barPadding}">
-                        <div class="flex w-full flex-row items-center justify-between gap-1">
-                          <div class="justify-self-start shrink-0">${label}&nbsp;</div>
-                          <div class="justify-self-end value">0%</div>
+                        <div class="flex w-full flex-row items-center gap-1">
+                          <div class="shrink-0">${label}&nbsp;</div>
+                          <div class="valueMiddle min-w-0 flex-1 truncate text-center tabular-nums opacity-95"></div>
+                          <div class="value shrink-0 text-right tabular-nums">0%</div>
                         </div>
                       </div>
                     </div>
                     <div class="bwi-bar-item${hasItem ? "" : " hidden"}"></div>
                   </div>`;
-        // TODO: text left side, percent right side
         break;
       }
       case "timerList": {
@@ -1429,6 +1430,10 @@ BotUi.prototype.render = function (onlyNames) {
           row._pbWidth = widthStr;
         }
         this._setProgressValueText(row, value[1]);
+        this._setProgressMiddleText(
+          row,
+          Array.isArray(value) && value.length > 2 ? value[2] : "",
+        );
         bwiPaintBarItem(row, this.data, options);
         bwiBindProgressModal(
           row,
@@ -1761,6 +1766,14 @@ BotUi.prototype.render = function (onlyNames) {
 };
 
 /** Update progress label slower than the fill so digits don't flicker every beat. */
+BotUi.prototype._setProgressMiddleText = function (row, text) {
+  const next = text == null ? "" : String(text);
+  const midEl = row.getElementsByClassName("valueMiddle")[0];
+  if (!midEl) return;
+  if (midEl.textContent === next) return;
+  midEl.textContent = next;
+};
+
 BotUi.prototype._setProgressValueText = function (row, text) {
   const TEXT_CADENCE_MS = 200;
   const next = text == null ? "" : String(text);

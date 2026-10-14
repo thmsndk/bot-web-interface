@@ -314,7 +314,6 @@ function create() {
       { name: "header", type: "leftMiddleRightText" },
       { name: "header2", type: "leftMiddleRightText" },
       { name: "header3", type: "leftMiddleRightText" },
-      { name: "combat", type: "leftMiddleRightText" },
       {
         name: "health",
         type: "labelProgressBar",
@@ -950,12 +949,15 @@ setInterval(function () {
           header: { left: "", middle: "No Target", right: "" },
           header2: { left: "", middle: " ", right: "" },
           header3: { left: "", middle: "", right: "" },
-          combat: { left: "", middle: "", right: "" },
-          health: [100, " "],
+          health: [100, " ", ""],
           mana: [100, " "],
           timers: [],
         };
       }
+      const health = quick_bar_val(targetHp, targetMaxHp, true);
+      health.push(
+        `${humanize_int(targetDps, 1)} dps · ${targetTtkSec.toFixed(1)}s ttk`
+      );
       return {
         header: {
           left: "bee",
@@ -973,12 +975,7 @@ setInterval(function () {
           middle: "",
           right: `${beeX.toFixed(0)}, ${beeY.toFixed(0)}`,
         },
-        combat: {
-          left: `DPS ${humanize_int(targetDps, 1)}`,
-          middle: "",
-          right: `TTK ${(targetTtkSec).toFixed(1)}s`,
-        },
-        health: quick_bar_val(targetHp, targetMaxHp, true),
+        health,
         mana: quick_bar_val(0, 1, true),
         timers: timerRows.slice(0, 2),
       };
