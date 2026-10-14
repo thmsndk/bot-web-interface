@@ -35,13 +35,22 @@ const CLASS_NAMES = Object.keys(CLASS_COLOR);
 const MINIMAP_STYLES = {
   wall: { stroke: "rgba(226,232,240,0.92)", lineWidth: 1.35 },
   self: { shape: "cross", fill: "#32b1f5" },
+  sit: { shape: "ring", stroke: "#f59e0b", lineWidth: 1.75 },
   foe: { shape: "cross", fill: "#b14f1d" },
   alert: { shape: "cross", fill: "#c10037" },
   other: { shape: "cross", fill: "#284af4" },
+  party: { shape: "dot", fill: "#1bd545" },
   focus: { shape: "ring", stroke: "#c10037", lineWidth: 1 },
   range: { stroke: "rgba(148,163,184,0.4)", lineWidth: 0.75, dash: [2, 4] },
   trail: { stroke: "rgba(125,211,252,0.5)", lineWidth: 1 },
 };
+for (const ctype of CLASS_NAMES) {
+  MINIMAP_STYLES[ctype] = { shape: "cross", fill: CLASS_COLOR[ctype] };
+  MINIMAP_STYLES["party:" + ctype] = {
+    shape: "dot",
+    fill: CLASS_COLOR[ctype],
+  };
+}
 
 /** Project AL world GEO + entities into BWI minimap pixel space (same as caracAL). */
 function buildMinimapPayload(cx, cy, entities, trailWorld, vision) {
@@ -305,6 +314,7 @@ function create() {
       { name: "header", type: "leftMiddleRightText" },
       { name: "header2", type: "leftMiddleRightText" },
       { name: "header3", type: "leftMiddleRightText" },
+      { name: "combat", type: "leftMiddleRightText" },
       {
         name: "health",
         type: "labelProgressBar",
@@ -787,13 +797,16 @@ setInterval(function () {
     const foeY = selfY + Math.sin(angle * 2) * 35;
     const beeX = selfX - 50;
     const beeY = selfY + 28;
+    const partyCtype = CLASS_NAMES[(characterBotUI.id + 1) % CLASS_NAMES.length];
+    const strangerCtype =
+      CLASS_NAMES[(characterBotUI.id + 3) % CLASS_NAMES.length];
     const entities = [
       {
         x: selfX,
         y: selfY,
         style: "self",
         label: charName.split(" ")[0] || "You",
-        hp: state.health,
+        hp: 1,
         range: 40,
       },
       { x: foeX, y: foeY, style: "foe", label: "goo", hp: 0.55 },
@@ -801,9 +814,16 @@ setInterval(function () {
       {
         x: selfX + 36,
         y: selfY - 40,
-        style: "other",
+        style: "party:" + partyCtype,
         label: "Ally",
-        hp: 0.9,
+        hp: 1,
+      },
+      {
+        x: selfX - 42,
+        y: selfY - 28,
+        style: strangerCtype,
+        label: "Rival",
+        hp: 0.72,
       },
       { x: beeX, y: beeY, style: "focus" },
     ];
@@ -905,7 +925,7 @@ setInterval(function () {
         bank: quick_bar_val(bankUsed, state.bankSlots),
         gold: {
           left: `Gold: ${humanize_int(state.gold, 1)}`,
-          middle: "",
+          middle: "G×1.12 L×1.05 X×1.20",
           right: `${humanize_int(state.goldPerHour, 1)} G/h`,
         },
         favorites: showcaseState.favorites,
@@ -920,12 +940,28 @@ setInterval(function () {
 
     const targetHp = 400 + Math.sin(nowSec) * 80;
     const targetMaxHp = 800;
+    // Every ~8s drop target for 1.5s so lingering timer chips must clear.
+    const clearTarget = Math.floor(nowSec / 8) % 2 === 1 && nowSec % 8 < 1.5;
+    const targetDps = 1200 + Math.sin(nowSec) * 200;
+    const targetTtkSec = targetHp / targetDps;
     targetBotUI.setDataSource(function () {
+      if (clearTarget) {
+        return {
+          header: { left: "", middle: "No Target", right: "" },
+          header2: { left: "", middle: " ", right: "" },
+          header3: { left: "", middle: "", right: "" },
+          combat: { left: "", middle: "", right: "" },
+          health: [100, " "],
+          mana: [100, " "],
+          timers: [],
+        };
+      }
       return {
         header: {
           left: "bee",
           middle: charName.split(" ")[0] || "",
           right: 12,
+          options: { middleColor: "#22c55e" },
         },
         header2: {
           left: "bee",
@@ -936,6 +972,11 @@ setInterval(function () {
           left: "main",
           middle: "",
           right: `${beeX.toFixed(0)}, ${beeY.toFixed(0)}`,
+        },
+        combat: {
+          left: `DPS ${humanize_int(targetDps, 1)}`,
+          middle: "",
+          right: `TTK ${(targetTtkSec).toFixed(1)}s`,
         },
         health: quick_bar_val(targetHp, targetMaxHp, true),
         mana: quick_bar_val(0, 1, true),

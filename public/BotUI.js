@@ -1295,7 +1295,10 @@ BotUi.prototype.render = function (onlyNames) {
     const value = this.data[name]; // TODO: sharing of the same data source across components? so we don't send it excessively? modals, chars, e.g. pie chart over loot table
     let options = this.structure[i].options;
 
-    if (value === undefined && type !== "modalStrip") continue;
+    // timerList must still run on undefined so a cleared field hides stale chips
+    // (target swap / no-target used to omit `timers` and leave buffs on screen).
+    if (value === undefined && type !== "modalStrip" && type !== "timerList")
+      continue;
 
     // TODO: is there an issue with the name? e.g. we have two "timers" and it's not properly found in the subUI?
 
@@ -1530,6 +1533,7 @@ BotUi.prototype.render = function (onlyNames) {
         row.replaceChild(newTbody, row.getElementsByTagName("tbody")[0]);
         break;
       case "timerList": {
+        if (!Array.isArray(value)) value = [];
         for (let index = 0; index < value.length; index++) {
           const {
             leftText,
@@ -2362,11 +2366,13 @@ BotUi.prototype.renderMinimap = function (row, value, options) {
         if (!key) continue;
         const style = styles[key] || {};
         const color = style.fill || style.stroke || "#aaa";
+        const label =
+          key.indexOf("party:") === 0 ? "party " + key.slice(6) : key;
         htmlLegend +=
           '<div class="flex items-center gap-1"><span style="display:inline-block;width:8px;height:8px;background:' +
           color +
           '"></span>' +
-          key +
+          label +
           "</div>";
       }
       const nextLegend = htmlLegend || "<div>no styles</div>";
@@ -2697,7 +2703,8 @@ BotUi.prototype._paintMinimapCanvas = function (row, value, options, bound) {
         ctx.arc(x + sc * 0.5, y + sc * 0.5, 1.1 * sc, 0, Math.PI * 2);
         ctx.fill();
       }
-      if (typeof hp === "number") {
+      // Full HP bars are noise — only show when damaged.
+      if (typeof hp === "number" && hp < 0.999) {
         const bw = 10;
         const bh = 2;
         ctx.fillStyle = "rgba(0,0,0,0.55)";
